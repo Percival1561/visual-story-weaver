@@ -1,10 +1,13 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { PromptInput } from "@/components/PromptInput";
 import { ImageDisplay } from "@/components/ImageDisplay";
 import { Gallery } from "@/components/Gallery";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sparkles, LogIn, LogOut, User } from "lucide-react";
 
 interface GalleryImage {
   id: string;
@@ -17,14 +20,22 @@ const Index = () => {
   const [currentPrompt, setCurrentPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
+  const { user, loading, signOut } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
-  // Fetch persisted gallery on mount
+  // Fetch persisted gallery on mount when user is logged in
   useEffect(() => {
+    if (!user) {
+      setGallery([]);
+      return;
+    }
+
     const fetchGallery = async () => {
       const { data, error } = await supabase
         .from('gallery')
         .select('*')
+        .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -43,16 +54,28 @@ const Index = () => {
     };
 
     fetchGallery();
-  }, []);
+  }, [user]);
 
-  const handleGenerate = async (prompt: string) => {
+  const handleGenerate = async (prompt: string, style: string) => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to generate and save images.",
+        variant: "destructive",
+      });
+      navigate("/auth");
+      return;
+    }
+
     setIsLoading(true);
     setCurrentPrompt(prompt);
     setCurrentImage(null);
 
+    const fullPrompt = style ? `${prompt}, ${style}` : prompt;
+
     try {
       const { data, error } = await supabase.functions.invoke('generate-image', {
-        body: { prompt }
+        body: { prompt: fullPrompt }
       });
 
       if (error) {
@@ -61,11 +84,21 @@ const Index = () => {
 
       if (data?.imageUrl) {
         setCurrentImage(data.imageUrl);
-        // Add to gallery state (will also be in DB now)
-        setGallery(prev => [
-          { id: Date.now().toString(), imageUrl: data.imageUrl, prompt },
-          ...prev.slice(0, 19)
-        ]);
+        // Refresh gallery from database
+        const { data: galleryData } = await supabase
+          .from('gallery')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(20);
+
+        if (galleryData) {
+          setGallery(galleryData.map(item => ({
+            id: item.id,
+            imageUrl: item.image_url,
+            prompt: item.prompt
+          })));
+        }
       } else {
         throw new Error('No image received');
       }
@@ -81,10 +114,59 @@ const Index = () => {
     }
   };
 
+  const handleDeleteImage = async (image: GalleryImage) => {
+    try {
+      const { error } = await supabase
+        .from('gallery')
+        .delete()
+        .eq('id', image.id);
+
+      if (error) throw error;
+
+      setGallery(prev => prev.filter(img => img.id !== image.id));
+      
+      if (currentImage === image.imageUrl) {
+        setCurrentImage(null);
+        setCurrentPrompt("");
+      }
+
+      toast({
+        title: "Deleted",
+        description: "Image removed from your gallery.",
+      });
+    } catch (error: any) {
+      console.error('Delete error:', error);
+      toast({
+        title: "Delete failed",
+        description: error.message || "Could not delete the image.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSelectGalleryImage = (image: GalleryImage) => {
     setCurrentImage(image.imageUrl);
     setCurrentPrompt(image.prompt);
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+    setGallery([]);
+    setCurrentImage(null);
+    setCurrentPrompt("");
+    toast({
+      title: "Signed out",
+      description: "See you next time!",
+    });
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -97,6 +179,27 @@ const Index = () => {
       <div className="relative z-10 container mx-auto px-4 py-12 space-y-16">
         {/* Header */}
         <header className="text-center space-y-4">
+          {/* Auth buttons */}
+          <div className="flex justify-end mb-4">
+            {user ? (
+              <div className="flex items-center gap-3">
+                <span className="text-sm text-muted-foreground flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  {user.email}
+                </span>
+                <Button variant="outline" size="sm" onClick={handleSignOut}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </Button>
+              </div>
+            ) : (
+              <Button variant="outline" size="sm" onClick={() => navigate("/auth")}>
+                <LogIn className="w-4 h-4 mr-2" />
+                Sign In
+              </Button>
+            )}
+          </div>
+
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border text-sm text-muted-foreground">
             <Sparkles className="w-4 h-4 text-primary" />
             AI-Powered Image Generation
@@ -119,7 +222,12 @@ const Index = () => {
             prompt={currentPrompt}
           />
 
-          <Gallery images={gallery} onSelect={handleSelectGalleryImage} />
+          <Gallery 
+            images={gallery} 
+            onSelect={handleSelectGalleryImage}
+            onDelete={handleDeleteImage}
+            canDelete={!!user}
+          />
         </main>
 
         {/* Footer */}

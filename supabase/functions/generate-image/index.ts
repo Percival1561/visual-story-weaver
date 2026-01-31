@@ -36,9 +36,33 @@ serve(async (req) => {
       throw new Error("Supabase configuration missing");
     }
 
+    // Get user from auth header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create user client to get the user
+    const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
+    
+    if (userError || !user) {
+      console.error("Auth error:", userError);
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    console.log("Generating image for prompt:", prompt);
+    console.log("Generating image for user:", user.id, "prompt:", prompt);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -100,7 +124,7 @@ serve(async (req) => {
     const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
     // Generate unique filename
-    const filename = `image-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+    const filename = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
 
     // Upload to storage
     const { error: uploadError } = await supabase.storage
@@ -122,12 +146,13 @@ serve(async (req) => {
 
     const publicUrl = urlData.publicUrl;
 
-    // Save to gallery table
+    // Save to gallery table with user_id
     const { error: dbError } = await supabase
       .from('gallery')
       .insert({
         image_url: publicUrl,
-        prompt: prompt
+        prompt: prompt,
+        user_id: user.id
       });
 
     if (dbError) {
@@ -135,7 +160,7 @@ serve(async (req) => {
       // Don't fail the request, image was generated successfully
     }
 
-    console.log("Image saved to storage and database");
+    console.log("Image saved to storage and database for user:", user.id);
 
     return new Response(
       JSON.stringify({ 

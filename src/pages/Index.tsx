@@ -7,12 +7,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogIn, LogOut, User } from "lucide-react";
+import { Sparkles, LogIn, LogOut, User, Crown, Wand2, RefreshCw } from "lucide-react";
 
 interface GalleryImage {
   id: string;
   imageUrl: string;
   prompt: string;
+  isPublic?: boolean;
+  shareId?: string;
 }
 
 const Index = () => {
@@ -20,7 +22,7 @@ const Index = () => {
   const [currentPrompt, setCurrentPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, subscription, checkingSubscription, signOut, refreshSubscription } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -48,7 +50,9 @@ const Index = () => {
         setGallery(data.map(item => ({
           id: item.id,
           imageUrl: item.image_url,
-          prompt: item.prompt
+          prompt: item.prompt,
+          isPublic: item.is_public,
+          shareId: item.share_id
         })));
       }
     };
@@ -64,6 +68,16 @@ const Index = () => {
         variant: "destructive",
       });
       navigate("/auth");
+      return;
+    }
+
+    // Check subscription for generation
+    if (!subscription?.subscribed) {
+      toast({
+        title: "Subscription required",
+        description: "Start your free trial to generate unlimited images.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -96,7 +110,9 @@ const Index = () => {
           setGallery(galleryData.map(item => ({
             id: item.id,
             imageUrl: item.image_url,
-            prompt: item.prompt
+            prompt: item.prompt,
+            isPublic: item.is_public,
+            shareId: item.share_id
           })));
         }
       } else {
@@ -112,6 +128,20 @@ const Index = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleVariation = async (image: GalleryImage) => {
+    if (!user || !subscription?.subscribed) {
+      toast({
+        title: "Subscription required",
+        description: "Start your free trial to create variations.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const variationPrompt = `A creative variation of: ${image.prompt}. Create something similar but with unique artistic interpretation.`;
+    handleGenerate(variationPrompt, "");
   };
 
   const handleDeleteImage = async (image: GalleryImage) => {
@@ -144,6 +174,53 @@ const Index = () => {
     }
   };
 
+  const handleShareImage = async (image: GalleryImage): Promise<string | null> => {
+    try {
+      const { data, error } = await supabase.functions.invoke('share-image', {
+        body: { imageId: image.id, action: 'share' }
+      });
+
+      if (error) throw error;
+
+      // Update local state
+      setGallery(prev => prev.map(img => 
+        img.id === image.id ? { ...img, isPublic: true, shareId: data.shareId } : img
+      ));
+
+      return data.shareId;
+    } catch (error: any) {
+      console.error('Share error:', error);
+      toast({
+        title: "Share failed",
+        description: error.message || "Could not share the image.",
+        variant: "destructive",
+      });
+      return null;
+    }
+  };
+
+  const handleUnshareImage = async (image: GalleryImage) => {
+    try {
+      const { error } = await supabase.functions.invoke('share-image', {
+        body: { imageId: image.id, action: 'unshare' }
+      });
+
+      if (error) throw error;
+
+      // Update local state
+      setGallery(prev => prev.map(img => 
+        img.id === image.id ? { ...img, isPublic: false } : img
+      ));
+    } catch (error: any) {
+      console.error('Unshare error:', error);
+      toast({
+        title: "Unshare failed",
+        description: error.message || "Could not unshare the image.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSelectGalleryImage = (image: GalleryImage) => {
     setCurrentImage(image.imageUrl);
     setCurrentPrompt(image.prompt);
@@ -160,6 +237,49 @@ const Index = () => {
     });
   };
 
+  const handleStartTrial = async () => {
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('create-checkout');
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error: any) {
+      console.error('Checkout error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Could not start checkout.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('customer-portal');
+      
+      if (error) throw error;
+      
+      if (data?.url) {
+        window.open(data.url, '_blank');
+      }
+    } catch (error: any) {
+      console.error('Portal error:', error);
+      toast({
+        title: "Error",
+        description: error.message || "Could not open subscription management.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -167,6 +287,9 @@ const Index = () => {
       </div>
     );
   }
+
+  const isSubscribed = subscription?.subscribed;
+  const isTrial = subscription?.trial;
 
   return (
     <div className="min-h-screen bg-background">
@@ -179,19 +302,41 @@ const Index = () => {
       <div className="relative z-10 container mx-auto px-4 py-12 space-y-16">
         {/* Header */}
         <header className="text-center space-y-4">
-          {/* Auth buttons */}
-          <div className="flex justify-end mb-4">
+          {/* Auth & Subscription buttons */}
+          <div className="flex justify-end mb-4 gap-3 flex-wrap">
             {user ? (
-              <div className="flex items-center gap-3">
+              <>
                 <span className="text-sm text-muted-foreground flex items-center gap-2">
                   <User className="w-4 h-4" />
                   {user.email}
                 </span>
+                
+                {isSubscribed ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary flex items-center gap-1">
+                      <Crown className="w-3 h-3" />
+                      {isTrial ? "Trial" : "Pro"}
+                    </span>
+                    <Button variant="outline" size="sm" onClick={handleManageSubscription}>
+                      Manage
+                    </Button>
+                  </div>
+                ) : (
+                  <Button 
+                    size="sm" 
+                    onClick={handleStartTrial}
+                    className="bg-gradient-primary text-primary-foreground shadow-glow"
+                  >
+                    <Crown className="w-4 h-4 mr-2" />
+                    Start Free Trial
+                  </Button>
+                )}
+                
                 <Button variant="outline" size="sm" onClick={handleSignOut}>
                   <LogOut className="w-4 h-4 mr-2" />
                   Sign Out
                 </Button>
-              </div>
+              </>
             ) : (
               <Button variant="outline" size="sm" onClick={() => navigate("/auth")}>
                 <LogIn className="w-4 h-4 mr-2" />
@@ -210,6 +355,27 @@ const Index = () => {
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Transform your ideas into stunning visuals. Just describe what you imagine.
           </p>
+
+          {/* Subscription CTA for non-subscribers */}
+          {user && !isSubscribed && (
+            <div className="max-w-md mx-auto mt-6 p-4 rounded-xl bg-card border border-border">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center shrink-0">
+                  <Crown className="w-6 h-6 text-primary-foreground" />
+                </div>
+                <div className="text-left">
+                  <h3 className="font-semibold text-foreground">Unlock Visionary Pro</h3>
+                  <p className="text-sm text-muted-foreground">3-day free trial, then $9.99/month</p>
+                </div>
+                <Button 
+                  onClick={handleStartTrial}
+                  className="shrink-0 bg-gradient-primary text-primary-foreground"
+                >
+                  Start Trial
+                </Button>
+              </div>
+            </div>
+          )}
         </header>
 
         {/* Main content */}
@@ -222,11 +388,33 @@ const Index = () => {
             prompt={currentPrompt}
           />
 
+          {/* Variation button when viewing an image */}
+          {currentImage && isSubscribed && (
+            <div className="flex justify-center">
+              <Button
+                onClick={() => {
+                  const currentGalleryImage = gallery.find(img => img.imageUrl === currentImage);
+                  if (currentGalleryImage) {
+                    handleVariation(currentGalleryImage);
+                  }
+                }}
+                variant="outline"
+                className="border-primary/50 hover:bg-primary/10"
+              >
+                <Wand2 className="w-4 h-4 mr-2" />
+                Create Variation
+              </Button>
+            </div>
+          )}
+
           <Gallery 
             images={gallery} 
             onSelect={handleSelectGalleryImage}
             onDelete={handleDeleteImage}
+            onShare={handleShareImage}
+            onUnshare={handleUnshareImage}
             canDelete={!!user}
+            canShare={!!user && isSubscribed}
           />
         </main>
 

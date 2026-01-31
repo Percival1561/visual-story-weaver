@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,10 +23,20 @@ serve(async (req) => {
     }
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
     if (!LOVABLE_API_KEY) {
       console.error("LOVABLE_API_KEY is not configured");
       throw new Error("LOVABLE_API_KEY is not configured");
     }
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error("Supabase configuration missing");
+      throw new Error("Supabase configuration missing");
+    }
+
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     console.log("Generating image for prompt:", prompt);
 
@@ -73,10 +84,10 @@ serve(async (req) => {
     const data = await response.json();
     console.log("Image generation successful");
     
-    const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+    const base64ImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
     const textResponse = data.choices?.[0]?.message?.content || "";
 
-    if (!imageUrl) {
+    if (!base64ImageUrl) {
       console.error("No image in response");
       return new Response(
         JSON.stringify({ error: "No image was generated" }),
@@ -84,9 +95,51 @@ serve(async (req) => {
       );
     }
 
+    // Extract base64 data and convert to binary
+    const base64Data = base64ImageUrl.replace(/^data:image\/\w+;base64,/, '');
+    const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
+
+    // Generate unique filename
+    const filename = `image-${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+
+    // Upload to storage
+    const { error: uploadError } = await supabase.storage
+      .from('generated-images')
+      .upload(filename, binaryData, {
+        contentType: 'image/png',
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error("Storage upload error:", uploadError);
+      throw new Error("Failed to save image");
+    }
+
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('generated-images')
+      .getPublicUrl(filename);
+
+    const publicUrl = urlData.publicUrl;
+
+    // Save to gallery table
+    const { error: dbError } = await supabase
+      .from('gallery')
+      .insert({
+        image_url: publicUrl,
+        prompt: prompt
+      });
+
+    if (dbError) {
+      console.error("Database insert error:", dbError);
+      // Don't fail the request, image was generated successfully
+    }
+
+    console.log("Image saved to storage and database");
+
     return new Response(
       JSON.stringify({ 
-        imageUrl,
+        imageUrl: publicUrl,
         description: textResponse
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

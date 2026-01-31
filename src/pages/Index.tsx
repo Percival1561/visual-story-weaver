@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PromptInput } from "@/components/PromptInput";
 import { ImageDisplay } from "@/components/ImageDisplay";
 import { Gallery } from "@/components/Gallery";
@@ -19,6 +19,32 @@ const Index = () => {
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const { toast } = useToast();
 
+  // Fetch persisted gallery on mount
+  useEffect(() => {
+    const fetchGallery = async () => {
+      const { data, error } = await supabase
+        .from('gallery')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        console.error('Failed to fetch gallery:', error);
+        return;
+      }
+
+      if (data) {
+        setGallery(data.map(item => ({
+          id: item.id,
+          imageUrl: item.image_url,
+          prompt: item.prompt
+        })));
+      }
+    };
+
+    fetchGallery();
+  }, []);
+
   const handleGenerate = async (prompt: string) => {
     setIsLoading(true);
     setCurrentPrompt(prompt);
@@ -35,9 +61,10 @@ const Index = () => {
 
       if (data?.imageUrl) {
         setCurrentImage(data.imageUrl);
+        // Add to gallery state (will also be in DB now)
         setGallery(prev => [
           { id: Date.now().toString(), imageUrl: data.imageUrl, prompt },
-          ...prev.slice(0, 7)
+          ...prev.slice(0, 19)
         ]);
       } else {
         throw new Error('No image received');

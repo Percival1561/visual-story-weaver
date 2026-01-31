@@ -57,6 +57,20 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        glow: {
+          primary: "hsl(var(--glow-primary))",
+          accent: "hsl(var(--glow-accent))",
+        },
+      },
+      backgroundImage: {
+        'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
+        'gradient-conic': 'conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))',
+        'gradient-primary': 'linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-end)))',
+      },
+      boxShadow: {
+        'glow': '0 0 20px hsl(var(--glow-primary) / 0.3)',
+        'glow-lg': '0 0 40px hsl(var(--glow-primary) / 0.4)',
+        'glow-accent': '0 0 20px hsl(var(--glow-accent) / 0.3)',
       },
       borderRadius: {
         lg: "var(--radius)",

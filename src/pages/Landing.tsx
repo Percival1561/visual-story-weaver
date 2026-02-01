@@ -37,9 +37,9 @@ const scaleIn = {
 const features = [
   { name: "AI Image Generation", free: "8/day", pro: "Unlimited" },
   { name: "Gallery Storage", free: true, pro: true },
-  { name: "Create Variations", free: true, pro: true },
-  { name: "Public Sharing", free: true, pro: true },
-  { name: "High Resolution Output", free: true, pro: true },
+  { name: "Create Variations", free: false, pro: true },
+  { name: "Public Sharing", free: false, pro: true },
+  { name: "High Resolution Output", free: false, pro: true },
   { name: "Priority Processing", free: false, pro: true },
   { name: "Commercial Usage Rights", free: false, pro: true },
 ];
@@ -294,17 +294,13 @@ const Landing = () => {
                     <Check className="w-4 h-4 text-primary shrink-0" />
                     <span>Personal gallery storage</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="w-4 h-4 text-primary shrink-0" />
-                    <span>Create variations</span>
+                  <li className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <X className="w-4 h-4 shrink-0" />
+                    <span>No variations</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="w-4 h-4 text-primary shrink-0" />
-                    <span>Public sharing links</span>
-                  </li>
-                  <li className="flex items-center gap-3 text-sm">
-                    <Check className="w-4 h-4 text-primary shrink-0" />
-                    <span>High resolution output</span>
+                  <li className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <X className="w-4 h-4 shrink-0" />
+                    <span>No public sharing</span>
                   </li>
                 </ul>
               </CardContent>

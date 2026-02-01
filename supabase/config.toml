@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.share-image]
 verify_jwt = false
+
+[functions.get-generation-status]
+verify_jwt = false

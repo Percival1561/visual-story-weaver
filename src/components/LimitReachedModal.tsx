@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Crown, Sparkles, Check, Zap, ImageIcon, Share2 } from "lucide-react";
+import { Crown, Sparkles, Check, ImageIcon, Share2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -95,11 +95,11 @@ export function LimitReachedModal({ open, onOpenChange, variant }: LimitReachedM
                   transition={{ type: "spring", duration: 0.5 }}
                   className="mx-auto w-16 h-16 rounded-full bg-gradient-primary flex items-center justify-center mb-4"
                 >
-                  <Zap className="w-8 h-8 text-primary-foreground" />
+                  <Sparkles className="w-8 h-8 text-primary-foreground" />
                 </motion.div>
-                <DialogTitle className="text-2xl">You've Hit the Daily Limit!</DialogTitle>
+                <DialogTitle className="text-2xl">Ready to Create Magic?</DialogTitle>
                 <DialogDescription className="text-muted-foreground">
-                  Create a free account to unlock 3 more generations today
+                  Sign up in seconds to start generating stunning AI images
                 </DialogDescription>
               </DialogHeader>
 
@@ -118,8 +118,8 @@ export function LimitReachedModal({ open, onOpenChange, variant }: LimitReachedM
                   />
                   <div className="relative z-10">
                     <div className="text-center mb-4">
-                      <span className="text-4xl font-bold text-foreground">+3</span>
-                      <p className="text-sm text-muted-foreground">Free generations</p>
+                      <span className="text-4xl font-bold text-foreground">8</span>
+                      <p className="text-sm text-muted-foreground">Free daily generations</p>
                     </div>
                     <ul className="space-y-2 mb-6">
                       <li className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -128,11 +128,15 @@ export function LimitReachedModal({ open, onOpenChange, variant }: LimitReachedM
                       </li>
                       <li className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Check className="w-4 h-4 text-primary" />
-                        Save images to your gallery
+                        Save images to your personal gallery
                       </li>
                       <li className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Check className="w-4 h-4 text-primary" />
-                        Access from any device
+                        Access your creations from any device
+                      </li>
+                      <li className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Check className="w-4 h-4 text-primary" />
+                        Takes less than 30 seconds
                       </li>
                     </ul>
                     <Button 
@@ -141,8 +145,11 @@ export function LimitReachedModal({ open, onOpenChange, variant }: LimitReachedM
                       size="lg"
                     >
                       <Sparkles className="w-4 h-4 mr-2" />
-                      Create Free Account
+                      Get Started Free
                     </Button>
+                    <p className="text-xs text-center text-muted-foreground mt-3">
+                      Join thousands of creators using Visionary
+                    </p>
                   </div>
                 </Card>
               </motion.div>

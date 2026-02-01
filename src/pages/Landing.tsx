@@ -35,11 +35,11 @@ const scaleIn = {
 };
 
 const features = [
-  { name: "AI Image Generation", free: false, pro: true },
-  { name: "Gallery Storage", free: false, pro: true },
-  { name: "Create Variations", free: false, pro: true },
-  { name: "Public Sharing", free: false, pro: true },
-  { name: "High Resolution Output", free: false, pro: true },
+  { name: "AI Image Generation", free: "8/day", pro: "Unlimited" },
+  { name: "Gallery Storage", free: true, pro: true },
+  { name: "Create Variations", free: true, pro: true },
+  { name: "Public Sharing", free: true, pro: true },
+  { name: "High Resolution Output", free: true, pro: true },
   { name: "Priority Processing", free: false, pro: true },
   { name: "Commercial Usage Rights", free: false, pro: true },
 ];
@@ -278,7 +278,7 @@ const Landing = () => {
             <Card className="bg-card/50 border-border">
               <CardHeader>
                 <CardTitle className="text-2xl">Free</CardTitle>
-                <CardDescription>Browse and explore</CardDescription>
+                <CardDescription>Start creating today</CardDescription>
                 <div className="pt-4">
                   <span className="text-4xl font-bold">$0</span>
                   <span className="text-muted-foreground">/month</span>
@@ -288,25 +288,29 @@ const Landing = () => {
                 <ul className="space-y-3">
                   <li className="flex items-center gap-3 text-sm">
                     <Check className="w-4 h-4 text-primary shrink-0" />
-                    <span>View shared galleries</span>
+                    <span><strong>8 AI generations</strong> per day</span>
                   </li>
                   <li className="flex items-center gap-3 text-sm">
                     <Check className="w-4 h-4 text-primary shrink-0" />
-                    <span>Create an account</span>
+                    <span>Personal gallery storage</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <X className="w-4 h-4 shrink-0" />
-                    <span>No image generation</span>
+                  <li className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-primary shrink-0" />
+                    <span>Create variations</span>
                   </li>
-                  <li className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <X className="w-4 h-4 shrink-0" />
-                    <span>No gallery storage</span>
+                  <li className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-primary shrink-0" />
+                    <span>Public sharing links</span>
+                  </li>
+                  <li className="flex items-center gap-3 text-sm">
+                    <Check className="w-4 h-4 text-primary shrink-0" />
+                    <span>High resolution output</span>
                   </li>
                 </ul>
               </CardContent>
               <CardFooter>
                 <Button variant="outline" className="w-full" onClick={() => navigate("/auth")}>
-                  Sign Up Free
+                  Get Started Free
                 </Button>
               </CardFooter>
             </Card>
@@ -390,14 +394,18 @@ const Landing = () => {
                     <TableRow key={feature.name} className="border-border">
                       <TableCell className="font-medium">{feature.name}</TableCell>
                       <TableCell className="text-center">
-                        {feature.free ? (
+                        {typeof feature.free === 'string' ? (
+                          <span className="text-sm font-medium text-primary">{feature.free}</span>
+                        ) : feature.free ? (
                           <Check className="w-4 h-4 text-primary mx-auto" />
                         ) : (
                           <X className="w-4 h-4 text-muted-foreground mx-auto" />
                         )}
                       </TableCell>
                       <TableCell className="text-center">
-                        {feature.pro ? (
+                        {typeof feature.pro === 'string' ? (
+                          <span className="text-sm font-medium text-primary">{feature.pro}</span>
+                        ) : feature.pro ? (
                           <Check className="w-4 h-4 text-primary mx-auto" />
                         ) : (
                           <X className="w-4 h-4 text-muted-foreground mx-auto" />

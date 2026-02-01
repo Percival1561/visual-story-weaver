@@ -7,6 +7,7 @@ import { Sparkles, Check, X, Crown, Zap, Image, Share2, Wand2, ArrowRight } from
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import FAQ from "@/components/landing/FAQ";
 
 const fadeInUp = {
   hidden: { opacity: 0, y: 20 },
@@ -409,6 +410,9 @@ const Landing = () => {
             </Card>
           </div>
         </section>
+
+        {/* FAQ Section */}
+        <FAQ />
 
         {/* CTA Section */}
         <section className="container mx-auto px-4 py-20">

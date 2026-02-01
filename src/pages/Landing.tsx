@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -6,6 +7,31 @@ import { Sparkles, Check, X, Crown, Zap, Image, Share2, Wand2, ArrowRight } from
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+
+const fadeInUp = {
+  hidden: { opacity: 0, y: 20 },
+  visible: { opacity: 1, y: 0 }
+};
+
+const staggerContainer = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2
+    }
+  }
+};
+
+const scaleIn = {
+  hidden: { opacity: 0, scale: 0.9 },
+  visible: { 
+    opacity: 1, 
+    scale: 1,
+    transition: { type: "spring" as const, stiffness: 100 }
+  }
+};
 
 const features = [
   { name: "AI Image Generation", free: false, pro: true },
@@ -94,99 +120,147 @@ const Landing = () => {
 
         {/* Hero Section */}
         <section className="container mx-auto px-4 py-20 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border text-sm text-muted-foreground mb-6">
-            <Zap className="w-4 h-4 text-primary" />
-            AI-Powered Image Generation
-          </div>
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight mb-6">
-            Turn Ideas Into
-            <br />
-            <span className="bg-gradient-primary bg-clip-text text-transparent">Stunning Visuals</span>
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-10">
-            Create beautiful, unique images with the power of AI. Just describe what you imagine, 
-            and watch your ideas come to life in seconds.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              size="lg" 
-              onClick={handleGetStarted}
-              className="bg-gradient-primary text-primary-foreground shadow-glow text-lg px-8"
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={staggerContainer}
+            className="space-y-6"
+          >
+            <motion.div 
+              variants={fadeInUp}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border text-sm text-muted-foreground"
             >
-              Start Free Trial
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate("/app")} className="text-lg px-8">
-              View Examples
-            </Button>
-          </div>
+              <Zap className="w-4 h-4 text-primary" />
+              AI-Powered Image Generation
+            </motion.div>
+            
+            <motion.h1 
+              variants={fadeInUp}
+              className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight"
+            >
+              Turn Ideas Into
+              <br />
+              <span className="bg-gradient-primary bg-clip-text text-transparent">Stunning Visuals</span>
+            </motion.h1>
+            
+            <motion.p 
+              variants={fadeInUp}
+              className="text-xl text-muted-foreground max-w-2xl mx-auto"
+            >
+              Create beautiful, unique images with the power of AI. Just describe what you imagine, 
+              and watch your ideas come to life in seconds.
+            </motion.p>
+            
+            <motion.div 
+              variants={fadeInUp}
+              className="flex flex-col sm:flex-row gap-4 justify-center pt-4"
+            >
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
+                <Button 
+                  size="lg" 
+                  onClick={handleGetStarted}
+                  className="bg-gradient-primary text-primary-foreground shadow-glow text-lg px-8"
+                >
+                  Start Free Trial
+                  <ArrowRight className="w-5 h-5 ml-2" />
+                </Button>
+              </motion.div>
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
+                <Button size="lg" variant="outline" onClick={() => navigate("/app")} className="text-lg px-8">
+                  View Examples
+                </Button>
+              </motion.div>
+            </motion.div>
+          </motion.div>
         </section>
 
         {/* Features Grid */}
         <section className="container mx-auto px-4 py-20">
-          <h2 className="text-3xl sm:text-4xl font-bold text-center mb-4">
-            Everything You Need to Create
-          </h2>
-          <p className="text-muted-foreground text-center max-w-2xl mx-auto mb-12">
-            Powerful features to help you generate, manage, and share your AI creations
-          </p>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card className="bg-card/50 border-border backdrop-blur-sm">
-              <CardHeader>
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Image className="w-6 h-6 text-primary" />
-                </div>
-                <CardTitle className="text-lg">AI Generation</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-sm">
-                  Transform text descriptions into stunning, high-quality images using advanced AI models.
-                </p>
-              </CardContent>
-            </Card>
+          <motion.div
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-100px" }}
+            variants={staggerContainer}
+          >
+            <motion.h2 variants={fadeInUp} className="text-3xl sm:text-4xl font-bold text-center mb-4">
+              Everything You Need to Create
+            </motion.h2>
+            <motion.p variants={fadeInUp} className="text-muted-foreground text-center max-w-2xl mx-auto mb-12">
+              Powerful features to help you generate, manage, and share your AI creations
+            </motion.p>
+          </motion.div>
+          
+          <motion.div 
+            initial="hidden"
+            whileInView="visible"
+            viewport={{ once: true, margin: "-50px" }}
+            variants={staggerContainer}
+            className="grid md:grid-cols-2 lg:grid-cols-4 gap-6"
+          >
+            <motion.div variants={scaleIn} whileHover={{ y: -8, transition: { duration: 0.2 } }}>
+              <Card className="bg-card/50 border-border backdrop-blur-sm h-full transition-shadow hover:shadow-glow">
+                <CardHeader>
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                    <Image className="w-6 h-6 text-primary" />
+                  </div>
+                  <CardTitle className="text-lg">AI Generation</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground text-sm">
+                    Transform text descriptions into stunning, high-quality images using advanced AI models.
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-            <Card className="bg-card/50 border-border backdrop-blur-sm">
-              <CardHeader>
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Wand2 className="w-6 h-6 text-primary" />
-                </div>
-                <CardTitle className="text-lg">Style Variations</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-sm">
-                  Create endless variations of your favorite images with one click.
-                </p>
-              </CardContent>
-            </Card>
+            <motion.div variants={scaleIn} whileHover={{ y: -8, transition: { duration: 0.2 } }}>
+              <Card className="bg-card/50 border-border backdrop-blur-sm h-full transition-shadow hover:shadow-glow">
+                <CardHeader>
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                    <Wand2 className="w-6 h-6 text-primary" />
+                  </div>
+                  <CardTitle className="text-lg">Style Variations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground text-sm">
+                    Create endless variations of your favorite images with one click.
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-            <Card className="bg-card/50 border-border backdrop-blur-sm">
-              <CardHeader>
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Share2 className="w-6 h-6 text-primary" />
-                </div>
-                <CardTitle className="text-lg">Easy Sharing</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-sm">
-                  Share your creations with anyone via unique public links.
-                </p>
-              </CardContent>
-            </Card>
+            <motion.div variants={scaleIn} whileHover={{ y: -8, transition: { duration: 0.2 } }}>
+              <Card className="bg-card/50 border-border backdrop-blur-sm h-full transition-shadow hover:shadow-glow">
+                <CardHeader>
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                    <Share2 className="w-6 h-6 text-primary" />
+                  </div>
+                  <CardTitle className="text-lg">Easy Sharing</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground text-sm">
+                    Share your creations with anyone via unique public links.
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-            <Card className="bg-card/50 border-border backdrop-blur-sm">
-              <CardHeader>
-                <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
-                  <Crown className="w-6 h-6 text-primary" />
-                </div>
-                <CardTitle className="text-lg">Unlimited Access</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground text-sm">
-                  Generate as many images as you want with your Pro subscription.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
+            <motion.div variants={scaleIn} whileHover={{ y: -8, transition: { duration: 0.2 } }}>
+              <Card className="bg-card/50 border-border backdrop-blur-sm h-full transition-shadow hover:shadow-glow">
+                <CardHeader>
+                  <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center mb-4">
+                    <Crown className="w-6 h-6 text-primary" />
+                  </div>
+                  <CardTitle className="text-lg">Unlimited Access</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground text-sm">
+                    Generate as many images as you want with your Pro subscription.
+                  </p>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </motion.div>
         </section>
 
         {/* Pricing Section */}

@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_generations: {
+        Row: {
+          count: number
+          created_at: string
+          generation_date: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          count?: number
+          created_at?: string
+          generation_date?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          count?: number
+          created_at?: string
+          generation_date?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       gallery: {
         Row: {
           created_at: string

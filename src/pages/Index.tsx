@@ -3,11 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { PromptInput } from "@/components/PromptInput";
 import { ImageDisplay } from "@/components/ImageDisplay";
 import { Gallery } from "@/components/Gallery";
+import { GenerationCounter } from "@/components/GenerationCounter";
+import { LimitReachedModal } from "@/components/LimitReachedModal";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
+import { useGenerationLimit } from "@/hooks/useGenerationLimit";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogIn, LogOut, User, Crown, Wand2, RefreshCw } from "lucide-react";
+import { Sparkles, LogIn, LogOut, User, Crown, Wand2 } from "lucide-react";
 
 interface GalleryImage {
   id: string;
@@ -22,9 +25,22 @@ const Index = () => {
   const [currentPrompt, setCurrentPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
-  const { user, loading, subscription, checkingSubscription, signOut, refreshSubscription } = useAuth();
+  const [showLimitModal, setShowLimitModal] = useState(false);
+  const { user, loading, subscription, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
+  
+  const {
+    generationsUsed,
+    generationsLimit,
+    hasSubscription,
+    limitReached,
+    showSignUpPrompt,
+    showProPrompt,
+    incrementAnonymousCount,
+    updateFromResponse,
+    refresh: refreshLimit,
+  } = useGenerationLimit();
 
   // Fetch persisted gallery on mount when user is logged in
   useEffect(() => {
@@ -60,24 +76,49 @@ const Index = () => {
     fetchGallery();
   }, [user]);
 
+  // Show modal when limit is reached
+  useEffect(() => {
+    if (showSignUpPrompt || showProPrompt) {
+      setShowLimitModal(true);
+    }
+  }, [showSignUpPrompt, showProPrompt]);
+
   const handleGenerate = async (prompt: string, style: string) => {
-    if (!user) {
-      toast({
-        title: "Sign in required",
-        description: "Please sign in to generate and save images.",
-        variant: "destructive",
-      });
-      navigate("/auth");
+    // Check limits before generating
+    if (limitReached) {
+      setShowLimitModal(true);
       return;
     }
 
-    // Check subscription for generation
-    if (!subscription?.subscribed) {
+    // For anonymous users, check localStorage limit
+    if (!user) {
+      const today = new Date().toISOString().split('T')[0];
+      const storedData = localStorage.getItem('visionary_anonymous_generations');
+      let anonymousCount = 0;
+      
+      if (storedData) {
+        try {
+          const parsed = JSON.parse(storedData);
+          if (parsed.date === today) {
+            anonymousCount = parsed.count;
+          }
+        } catch (e) {
+          console.error('Error parsing localStorage:', e);
+        }
+      }
+
+      if (anonymousCount >= 5) {
+        setShowLimitModal(true);
+        return;
+      }
+
+      // For anonymous users, just show the limit modal prompting signup
       toast({
-        title: "Subscription required",
-        description: "Start your free trial to generate unlimited images.",
+        title: "Sign in required",
+        description: "Create a free account to generate and save images.",
         variant: "destructive",
       });
+      setShowLimitModal(true);
       return;
     }
 
@@ -93,11 +134,26 @@ const Index = () => {
       });
 
       if (error) {
+        // Check if it's a limit error
+        if (error.message?.includes('LIMIT_REACHED') || error.message?.includes('Daily limit')) {
+          setShowLimitModal(true);
+          return;
+        }
         throw error;
       }
 
       if (data?.imageUrl) {
         setCurrentImage(data.imageUrl);
+        
+        // Update generation counter from response
+        if (data.generationsUsed !== undefined) {
+          updateFromResponse({
+            generationsUsed: data.generationsUsed,
+            generationsLimit: data.generationsLimit,
+            hasSubscription: data.hasSubscription,
+          });
+        }
+
         // Refresh gallery from database
         const { data: galleryData } = await supabase
           .from('gallery')
@@ -120,6 +176,18 @@ const Index = () => {
       }
     } catch (error: any) {
       console.error('Generation error:', error);
+      
+      // Check for limit error in response
+      if (error?.context?.body) {
+        try {
+          const body = JSON.parse(error.context.body);
+          if (body.code === 'LIMIT_REACHED') {
+            setShowLimitModal(true);
+            return;
+          }
+        } catch (e) {}
+      }
+      
       toast({
         title: "Generation failed",
         description: error.message || "Something went wrong. Please try again.",
@@ -131,12 +199,8 @@ const Index = () => {
   };
 
   const handleVariation = async (image: GalleryImage) => {
-    if (!user || !subscription?.subscribed) {
-      toast({
-        title: "Subscription required",
-        description: "Start your free trial to create variations.",
-        variant: "destructive",
-      });
+    if (!user || (!hasSubscription && limitReached)) {
+      setShowLimitModal(true);
       return;
     }
 
@@ -288,7 +352,7 @@ const Index = () => {
     );
   }
 
-  const isSubscribed = subscription?.subscribed;
+  const isSubscribed = subscription?.subscribed || hasSubscription;
   const isTrial = subscription?.trial;
 
   return (
@@ -303,46 +367,55 @@ const Index = () => {
         {/* Header */}
         <header className="text-center space-y-4">
           {/* Auth & Subscription buttons */}
-          <div className="flex justify-end mb-4 gap-3 flex-wrap">
-            {user ? (
-              <>
-                <span className="text-sm text-muted-foreground flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  {user.email}
-                </span>
-                
-                {isSubscribed ? (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary flex items-center gap-1">
-                      <Crown className="w-3 h-3" />
-                      {isTrial ? "Trial" : "Pro"}
-                    </span>
-                    <Button variant="outline" size="sm" onClick={handleManageSubscription}>
-                      Manage
+          <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
+            {/* Generation Counter */}
+            <GenerationCounter 
+              used={generationsUsed} 
+              limit={generationsLimit} 
+              hasSubscription={isSubscribed} 
+            />
+            
+            <div className="flex items-center gap-3 flex-wrap">
+              {user ? (
+                <>
+                  <span className="text-sm text-muted-foreground flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    {user.email}
+                  </span>
+                  
+                  {isSubscribed ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary flex items-center gap-1">
+                        <Crown className="w-3 h-3" />
+                        {isTrial ? "Trial" : "Pro"}
+                      </span>
+                      <Button variant="outline" size="sm" onClick={handleManageSubscription}>
+                        Manage
+                      </Button>
+                    </div>
+                  ) : (
+                    <Button 
+                      size="sm" 
+                      onClick={handleStartTrial}
+                      className="bg-gradient-primary text-primary-foreground shadow-glow"
+                    >
+                      <Crown className="w-4 h-4 mr-2" />
+                      Start Free Trial
                     </Button>
-                  </div>
-                ) : (
-                  <Button 
-                    size="sm" 
-                    onClick={handleStartTrial}
-                    className="bg-gradient-primary text-primary-foreground shadow-glow"
-                  >
-                    <Crown className="w-4 h-4 mr-2" />
-                    Start Free Trial
+                  )}
+                  
+                  <Button variant="outline" size="sm" onClick={handleSignOut}>
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Sign Out
                   </Button>
-                )}
-                
-                <Button variant="outline" size="sm" onClick={handleSignOut}>
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Sign Out
+                </>
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => navigate("/auth")}>
+                  <LogIn className="w-4 h-4 mr-2" />
+                  Sign In
                 </Button>
-              </>
-            ) : (
-              <Button variant="outline" size="sm" onClick={() => navigate("/auth")}>
-                <LogIn className="w-4 h-4 mr-2" />
-                Sign In
-              </Button>
-            )}
+              )}
+            </div>
           </div>
 
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border text-sm text-muted-foreground">
@@ -357,7 +430,7 @@ const Index = () => {
           </p>
 
           {/* Subscription CTA for non-subscribers */}
-          {user && !isSubscribed && (
+          {user && !isSubscribed && !limitReached && (
             <div className="max-w-md mx-auto mt-6 p-4 rounded-xl bg-card border border-border">
               <div className="flex items-center gap-3">
                 <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center shrink-0">
@@ -423,6 +496,13 @@ const Index = () => {
           <p>Powered by AI • Create unlimited visual masterpieces</p>
         </footer>
       </div>
+
+      {/* Limit Reached Modal */}
+      <LimitReachedModal
+        open={showLimitModal}
+        onOpenChange={setShowLimitModal}
+        variant={!user || showSignUpPrompt ? 'signup' : 'pro'}
+      />
     </div>
   );
 };

@@ -107,17 +107,7 @@ const Index = () => {
         }
       }
 
-      if (anonymousCount >= 5) {
-        setShowLimitModal(true);
-        return;
-      }
-
-      // For anonymous users, just show the limit modal prompting signup
-      toast({
-        title: "Sign in required",
-        description: "Create a free account to generate and save images.",
-        variant: "destructive",
-      });
+      // For anonymous users, prompt to sign up to start generating
       setShowLimitModal(true);
       return;
     }

@@ -156,7 +156,7 @@ serve(async (req) => {
     }
     // Anonymous users: no server-side tracking, frontend handles via localStorage
 
-    console.log("Generating image for user:", user.id, "prompt:", prompt);
+    console.log("Generating image for user:", user?.id || 'anonymous', "prompt:", prompt);
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

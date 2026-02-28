@@ -241,7 +241,7 @@ serve(async (req) => {
     }
 
     // Extract base64 data and convert to binary
-    const base64Data = base64ImageUrl.replace(/^data:image\/\w+;base64,/, '');
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
     const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
     // Generate unique filename

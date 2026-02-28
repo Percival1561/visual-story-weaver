@@ -90,28 +90,6 @@ const Index = () => {
       return;
     }
 
-    // For anonymous users, check localStorage limit
-    if (!user) {
-      const today = new Date().toISOString().split('T')[0];
-      const storedData = localStorage.getItem('visionary_anonymous_generations');
-      let anonymousCount = 0;
-      
-      if (storedData) {
-        try {
-          const parsed = JSON.parse(storedData);
-          if (parsed.date === today) {
-            anonymousCount = parsed.count;
-          }
-        } catch (e) {
-          console.error('Error parsing localStorage:', e);
-        }
-      }
-
-      // For anonymous users, prompt to sign up to start generating
-      setShowLimitModal(true);
-      return;
-    }
-
     setIsLoading(true);
     setCurrentPrompt(prompt);
     setCurrentImage(null);

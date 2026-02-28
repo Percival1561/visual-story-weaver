@@ -118,7 +118,7 @@ export function LimitReachedModal({ open, onOpenChange, variant }: LimitReachedM
                   />
                   <div className="relative z-10">
                     <div className="text-center mb-4">
-                      <span className="text-4xl font-bold text-foreground">8</span>
+                     <span className="text-4xl font-bold text-foreground">10</span>
                       <p className="text-sm text-muted-foreground">Free daily generations</p>
                     </div>
                     <ul className="space-y-2 mb-6">

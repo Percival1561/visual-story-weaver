@@ -7,9 +7,7 @@ const corsHeaders = {
 };
 
 // Limits
-const FREE_DAILY_LIMIT = 5;
-const SIGNED_IN_BONUS = 3; // Additional generations for signed-in users without subscription
-const TOTAL_FREE_LIMIT = FREE_DAILY_LIMIT + SIGNED_IN_BONUS; // 8 total for signed-in free users
+const FREE_DAILY_LIMIT = 10;
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -41,61 +39,42 @@ serve(async (req) => {
       throw new Error("Supabase configuration missing");
     }
 
-    // Get user from auth header
+    // Get user from auth header (optional - anonymous users allowed)
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Authentication required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    let user = null;
 
-    // Create user client to get the user
-    const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
-      global: { headers: { Authorization: authHeader } }
-    });
+    if (authHeader) {
+      const supabaseUser = createClient(SUPABASE_URL, Deno.env.get("SUPABASE_ANON_KEY")!, {
+        global: { headers: { Authorization: authHeader } }
+      });
 
-    const { data: { user }, error: userError } = await supabaseUser.auth.getUser();
-    
-    if (userError || !user) {
-      console.error("Auth error:", userError);
-      return new Response(
-        JSON.stringify({ error: 'Invalid authentication' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      const { data: { user: authUser }, error: userError } = await supabaseUser.auth.getUser();
+      
+      if (!userError && authUser) {
+        user = authUser;
+      }
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Check if user has an active subscription
-    const { data: customers } = await fetch(
-      `https://api.stripe.com/v1/customers?email=${encodeURIComponent(user.email || '')}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${Deno.env.get("STRIPE_SECRET_KEY")}`,
-        },
-      }
-    ).then(r => r.json());
-
     let hasActiveSubscription = false;
-    
-    if (customers?.data?.length > 0) {
-      const customerId = customers.data[0].id;
-      const { data: subscriptions } = await fetch(
-        `https://api.stripe.com/v1/subscriptions?customer=${customerId}&status=active&limit=1`,
+
+    // Only check subscription and daily limits for signed-in users
+    if (user) {
+      // Check if user has an active subscription
+      const { data: customers } = await fetch(
+        `https://api.stripe.com/v1/customers?email=${encodeURIComponent(user.email || '')}`,
         {
           headers: {
             'Authorization': `Bearer ${Deno.env.get("STRIPE_SECRET_KEY")}`,
           },
         }
       ).then(r => r.json());
-      
-      hasActiveSubscription = subscriptions?.data?.length > 0;
 
-      // Also check for trialing subscriptions
-      if (!hasActiveSubscription) {
-        const { data: trialSubs } = await fetch(
-          `https://api.stripe.com/v1/subscriptions?customer=${customerId}&status=trialing&limit=1`,
+      if (customers?.data?.length > 0) {
+        const customerId = customers.data[0].id;
+        const { data: subscriptions } = await fetch(
+          `https://api.stripe.com/v1/subscriptions?customer=${customerId}&status=active&limit=1`,
           {
             headers: {
               'Authorization': `Bearer ${Deno.env.get("STRIPE_SECRET_KEY")}`,
@@ -103,68 +82,79 @@ serve(async (req) => {
           }
         ).then(r => r.json());
         
-        hasActiveSubscription = trialSubs?.data?.length > 0;
-      }
-    }
+        hasActiveSubscription = subscriptions?.data?.length > 0;
 
-    console.log("User subscription status:", { userId: user.id, hasActiveSubscription });
-
-    // If user has subscription, allow unlimited generation
-    if (!hasActiveSubscription) {
-      // Check daily generation limit for free users
-      const today = new Date().toISOString().split('T')[0];
-      
-      const { data: genRecord, error: genError } = await supabase
-        .from('daily_generations')
-        .select('count')
-        .eq('user_id', user.id)
-        .eq('generation_date', today)
-        .single();
-
-      const currentCount = genRecord?.count || 0;
-      
-      console.log("Daily generation check:", { userId: user.id, currentCount, limit: TOTAL_FREE_LIMIT });
-
-      if (currentCount >= TOTAL_FREE_LIMIT) {
-        return new Response(
-          JSON.stringify({ 
-            error: 'Daily limit reached',
-            code: 'LIMIT_REACHED',
-            currentCount,
-            limit: TOTAL_FREE_LIMIT,
-            message: 'You have used all your free generations for today. Upgrade to Pro for unlimited access!'
-          }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Increment the counter
-      if (genError && genError.code === 'PGRST116') {
-        // No record exists, create one
-        const { error: insertError } = await supabase
-          .from('daily_generations')
-          .insert({
-            user_id: user.id,
-            generation_date: today,
-            count: 1
-          });
-        
-        if (insertError) {
-          console.error("Error creating generation record:", insertError);
+        if (!hasActiveSubscription) {
+          const { data: trialSubs } = await fetch(
+            `https://api.stripe.com/v1/subscriptions?customer=${customerId}&status=trialing&limit=1`,
+            {
+              headers: {
+                'Authorization': `Bearer ${Deno.env.get("STRIPE_SECRET_KEY")}`,
+              },
+            }
+          ).then(r => r.json());
+          
+          hasActiveSubscription = trialSubs?.data?.length > 0;
         }
-      } else if (genRecord) {
-        // Update existing record
-        const { error: updateError } = await supabase
+      }
+
+      console.log("User subscription status:", { userId: user.id, hasActiveSubscription });
+
+      // If user has subscription, allow unlimited generation
+      if (!hasActiveSubscription) {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const { data: genRecord, error: genError } = await supabase
           .from('daily_generations')
-          .update({ count: currentCount + 1 })
+          .select('count')
           .eq('user_id', user.id)
-          .eq('generation_date', today);
+          .eq('generation_date', today)
+          .single();
+
+        const currentCount = genRecord?.count || 0;
         
-        if (updateError) {
-          console.error("Error updating generation record:", updateError);
+        console.log("Daily generation check:", { userId: user.id, currentCount, limit: FREE_DAILY_LIMIT });
+
+        if (currentCount >= FREE_DAILY_LIMIT) {
+          return new Response(
+            JSON.stringify({ 
+              error: 'Daily limit reached',
+              code: 'LIMIT_REACHED',
+              currentCount,
+              limit: FREE_DAILY_LIMIT,
+              message: 'You have used all your free generations for today. Upgrade to Pro for unlimited access!'
+            }),
+            { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Increment the counter
+        if (genError && genError.code === 'PGRST116') {
+          const { error: insertError } = await supabase
+            .from('daily_generations')
+            .insert({
+              user_id: user.id,
+              generation_date: today,
+              count: 1
+            });
+          
+          if (insertError) {
+            console.error("Error creating generation record:", insertError);
+          }
+        } else if (genRecord) {
+          const { error: updateError } = await supabase
+            .from('daily_generations')
+            .update({ count: currentCount + 1 })
+            .eq('user_id', user.id)
+            .eq('generation_date', today);
+          
+          if (updateError) {
+            console.error("Error updating generation record:", updateError);
+          }
         }
       }
     }
+    // Anonymous users: no server-side tracking, frontend handles via localStorage
 
     console.log("Generating image for user:", user.id, "prompt:", prompt);
 
@@ -228,7 +218,8 @@ serve(async (req) => {
     const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
     // Generate unique filename
-    const filename = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+    const userId = user?.id || 'anonymous';
+    const filename = `${userId}/${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
 
     // Upload to storage
     const { error: uploadError } = await supabase.storage
@@ -250,37 +241,42 @@ serve(async (req) => {
 
     const publicUrl = urlData.publicUrl;
 
-    // Save to gallery table with user_id
-    const { error: dbError } = await supabase
-      .from('gallery')
-      .insert({
-        image_url: publicUrl,
-        prompt: prompt,
-        user_id: user.id
-      });
+    // Save to gallery table only for signed-in users
+    if (user) {
+      const { error: dbError } = await supabase
+        .from('gallery')
+        .insert({
+          image_url: publicUrl,
+          prompt: prompt,
+          user_id: user.id
+        });
 
-    if (dbError) {
-      console.error("Database insert error:", dbError);
-      // Don't fail the request, image was generated successfully
+      if (dbError) {
+        console.error("Database insert error:", dbError);
+      }
     }
 
-    // Get updated generation count to return to frontend
-    const today = new Date().toISOString().split('T')[0];
-    const { data: updatedGen } = await supabase
-      .from('daily_generations')
-      .select('count')
-      .eq('user_id', user.id)
-      .eq('generation_date', today)
-      .single();
+    // Get updated generation count for signed-in users
+    let generationsUsed = 1;
+    if (user) {
+      const today = new Date().toISOString().split('T')[0];
+      const { data: updatedGen } = await supabase
+        .from('daily_generations')
+        .select('count')
+        .eq('user_id', user.id)
+        .eq('generation_date', today)
+        .single();
+      generationsUsed = updatedGen?.count || 1;
+    }
 
-    console.log("Image saved to storage and database for user:", user.id);
+    console.log("Image generated for:", userId);
 
     return new Response(
       JSON.stringify({ 
         imageUrl: publicUrl,
         description: textResponse,
-        generationsUsed: updatedGen?.count || 1,
-        generationsLimit: hasActiveSubscription ? null : TOTAL_FREE_LIMIT,
+        generationsUsed,
+        generationsLimit: hasActiveSubscription ? null : FREE_DAILY_LIMIT,
         hasSubscription: hasActiveSubscription
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-const ANONYMOUS_DAILY_LIMIT = 5;
-const SIGNED_IN_LIMIT = 8; // 5 base + 3 bonus
+const FREE_DAILY_LIMIT = 10;
 
 interface GenerationStatus {
   generationsUsed: number;
@@ -20,10 +19,10 @@ export function useGenerationLimit() {
   const { user, subscription } = useAuth();
   const [status, setStatus] = useState<GenerationStatus>({
     generationsUsed: 0,
-    generationsLimit: ANONYMOUS_DAILY_LIMIT,
+    generationsLimit: FREE_DAILY_LIMIT,
     hasSubscription: false,
     isSignedIn: false,
-    remainingGenerations: ANONYMOUS_DAILY_LIMIT,
+    remainingGenerations: FREE_DAILY_LIMIT,
     limitReached: false,
     showSignUpPrompt: false,
     showProPrompt: false,
@@ -64,18 +63,18 @@ export function useGenerationLimit() {
         }
       }
 
-      const remaining = Math.max(0, ANONYMOUS_DAILY_LIMIT - anonymousCount);
+      const remaining = Math.max(0, FREE_DAILY_LIMIT - anonymousCount);
       const limitReached = remaining === 0;
 
       setStatus({
         generationsUsed: anonymousCount,
-        generationsLimit: ANONYMOUS_DAILY_LIMIT,
+        generationsLimit: FREE_DAILY_LIMIT,
         hasSubscription: false,
         isSignedIn: false,
         remainingGenerations: remaining,
         limitReached,
-        showSignUpPrompt: limitReached,
-        showProPrompt: false,
+        showSignUpPrompt: false,
+        showProPrompt: limitReached,
       });
       setLoading(false);
       return;
@@ -139,7 +138,7 @@ export function useGenerationLimit() {
       count: newCount,
     }));
 
-    const remaining = Math.max(0, ANONYMOUS_DAILY_LIMIT - newCount);
+    const remaining = Math.max(0, FREE_DAILY_LIMIT - newCount);
     const limitReached = remaining === 0;
 
     setStatus(prev => ({
@@ -147,7 +146,7 @@ export function useGenerationLimit() {
       generationsUsed: newCount,
       remainingGenerations: remaining,
       limitReached,
-      showSignUpPrompt: limitReached,
+      showProPrompt: limitReached,
     }));
   }, []);
 

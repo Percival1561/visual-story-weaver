@@ -90,28 +90,6 @@ const Index = () => {
       return;
     }
 
-    // For anonymous users, check localStorage limit
-    if (!user) {
-      const today = new Date().toISOString().split('T')[0];
-      const storedData = localStorage.getItem('visionary_anonymous_generations');
-      let anonymousCount = 0;
-      
-      if (storedData) {
-        try {
-          const parsed = JSON.parse(storedData);
-          if (parsed.date === today) {
-            anonymousCount = parsed.count;
-          }
-        } catch (e) {
-          console.error('Error parsing localStorage:', e);
-        }
-      }
-
-      // For anonymous users, prompt to sign up to start generating
-      setShowLimitModal(true);
-      return;
-    }
-
     setIsLoading(true);
     setCurrentPrompt(prompt);
     setCurrentImage(null);
@@ -135,6 +113,11 @@ const Index = () => {
       if (data?.imageUrl) {
         setCurrentImage(data.imageUrl);
         
+        // For anonymous users, increment localStorage counter
+        if (!user) {
+          incrementAnonymousCount();
+        }
+        
         // Update generation counter from response
         if (data.generationsUsed !== undefined) {
           updateFromResponse({
@@ -144,22 +127,24 @@ const Index = () => {
           });
         }
 
-        // Refresh gallery from database
-        const { data: galleryData } = await supabase
-          .from('gallery')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
-          .limit(20);
+        // Refresh gallery from database for signed-in users
+        if (user) {
+          const { data: galleryData } = await supabase
+            .from('gallery')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false })
+            .limit(20);
 
-        if (galleryData) {
-          setGallery(galleryData.map(item => ({
-            id: item.id,
-            imageUrl: item.image_url,
-            prompt: item.prompt,
-            isPublic: item.is_public,
-            shareId: item.share_id
-          })));
+          if (galleryData) {
+            setGallery(galleryData.map(item => ({
+              id: item.id,
+              imageUrl: item.image_url,
+              prompt: item.prompt,
+              isPublic: item.is_public,
+              shareId: item.share_id
+            })));
+          }
         }
       } else {
         throw new Error('No image received');
@@ -491,7 +476,7 @@ const Index = () => {
       <LimitReachedModal
         open={showLimitModal}
         onOpenChange={setShowLimitModal}
-        variant={!user || showSignUpPrompt ? 'signup' : 'pro'}
+        variant="pro"
       />
     </div>
   );

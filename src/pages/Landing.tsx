@@ -35,7 +35,7 @@ const scaleIn = {
 };
 
 const features = [
-  { name: "AI Image Generation", free: "8/day", pro: "Unlimited" },
+  { name: "AI Image Generation", free: "10/day", pro: "Unlimited" },
   { name: "Gallery Storage", free: true, pro: true },
   { name: "Create Variations", free: false, pro: true },
   { name: "Public Sharing", free: false, pro: true },
@@ -288,7 +288,7 @@ const Landing = () => {
                 <ul className="space-y-3">
                   <li className="flex items-center gap-3 text-sm">
                     <Check className="w-4 h-4 text-primary shrink-0" />
-                    <span><strong>8 AI generations</strong> per day</span>
+                    <span><strong>10 AI generations</strong> per day</span>
                   </li>
                   <li className="flex items-center gap-3 text-sm">
                     <Check className="w-4 h-4 text-primary shrink-0" />
@@ -305,8 +305,8 @@ const Landing = () => {
                 </ul>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full" onClick={() => navigate("/auth")}>
-                  Get Started Free
+                <Button variant="outline" className="w-full" onClick={() => navigate("/app")}>
+                  Start Creating
                 </Button>
               </CardFooter>
             </Card>

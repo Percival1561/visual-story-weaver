@@ -7,9 +7,7 @@ const corsHeaders = {
 };
 
 // Limits
-const FREE_DAILY_LIMIT = 5;
-const SIGNED_IN_BONUS = 3; // Additional generations for signed-in users without subscription
-const TOTAL_FREE_LIMIT = FREE_DAILY_LIMIT + SIGNED_IN_BONUS; // 8 total for signed-in free users
+const FREE_DAILY_LIMIT = 10;
 
 serve(async (req) => {
   // Handle CORS preflight requests

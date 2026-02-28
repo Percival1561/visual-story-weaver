@@ -63,18 +63,18 @@ export function useGenerationLimit() {
         }
       }
 
-      const remaining = Math.max(0, ANONYMOUS_DAILY_LIMIT - anonymousCount);
+      const remaining = Math.max(0, FREE_DAILY_LIMIT - anonymousCount);
       const limitReached = remaining === 0;
 
       setStatus({
         generationsUsed: anonymousCount,
-        generationsLimit: ANONYMOUS_DAILY_LIMIT,
+        generationsLimit: FREE_DAILY_LIMIT,
         hasSubscription: false,
         isSignedIn: false,
         remainingGenerations: remaining,
         limitReached,
-        showSignUpPrompt: limitReached,
-        showProPrompt: false,
+        showSignUpPrompt: false,
+        showProPrompt: limitReached,
       });
       setLoading(false);
       return;

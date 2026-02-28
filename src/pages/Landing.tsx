@@ -35,7 +35,7 @@ const scaleIn = {
 };
 
 const features = [
-  { name: "AI Image Generation", free: "8/day", pro: "Unlimited" },
+  { name: "AI Image Generation", free: "10/day", pro: "Unlimited" },
   { name: "Gallery Storage", free: true, pro: true },
   { name: "Create Variations", free: false, pro: true },
   { name: "Public Sharing", free: false, pro: true },

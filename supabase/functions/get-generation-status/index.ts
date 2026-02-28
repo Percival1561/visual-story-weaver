@@ -7,9 +7,7 @@ const corsHeaders = {
 };
 
 // Limits
-const FREE_DAILY_LIMIT = 5;
-const SIGNED_IN_BONUS = 3;
-const TOTAL_FREE_LIMIT = FREE_DAILY_LIMIT + SIGNED_IN_BONUS;
+const FREE_DAILY_LIMIT = 10;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {

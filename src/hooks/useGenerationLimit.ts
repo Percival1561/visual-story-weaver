@@ -19,10 +19,10 @@ export function useGenerationLimit() {
   const { user, subscription } = useAuth();
   const [status, setStatus] = useState<GenerationStatus>({
     generationsUsed: 0,
-    generationsLimit: ANONYMOUS_DAILY_LIMIT,
+    generationsLimit: FREE_DAILY_LIMIT,
     hasSubscription: false,
     isSignedIn: false,
-    remainingGenerations: ANONYMOUS_DAILY_LIMIT,
+    remainingGenerations: FREE_DAILY_LIMIT,
     limitReached: false,
     showSignUpPrompt: false,
     showProPrompt: false,

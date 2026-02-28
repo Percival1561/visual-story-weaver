@@ -2,8 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
-const ANONYMOUS_DAILY_LIMIT = 5;
-const SIGNED_IN_LIMIT = 8; // 5 base + 3 bonus
+const FREE_DAILY_LIMIT = 10;
 
 interface GenerationStatus {
   generationsUsed: number;

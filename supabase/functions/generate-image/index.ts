@@ -200,13 +200,40 @@ serve(async (req) => {
     }
 
     const data = await response.json();
-    console.log("Image generation successful");
+    console.log("Image generation response structure:", JSON.stringify(data).substring(0, 500));
     
-    const base64ImageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-    const textResponse = data.choices?.[0]?.message?.content || "";
+    // Try multiple possible response paths for the image
+    const message = data.choices?.[0]?.message;
+    const base64ImageUrl = 
+      message?.images?.[0]?.image_url?.url ||
+      message?.images?.[0]?.url ||
+      message?.image?.url ||
+      (message?.content && typeof message.content === 'object' && message.content?.[0]?.image_url?.url) ||
+      null;
+    
+    // Also check inline_data format from Gemini
+    let imageData = base64ImageUrl;
+    if (!imageData) {
+      // Check for parts-based response (Gemini style)
+      const parts = message?.content;
+      if (Array.isArray(parts)) {
+        for (const part of parts) {
+          if (part?.type === 'image_url' && part?.image_url?.url) {
+            imageData = part.image_url.url;
+            break;
+          }
+          if (part?.inline_data?.data) {
+            imageData = `data:${part.inline_data.mime_type || 'image/png'};base64,${part.inline_data.data}`;
+            break;
+          }
+        }
+      }
+    }
+    
+    const textResponse = typeof message?.content === 'string' ? message.content : "";
 
-    if (!base64ImageUrl) {
-      console.error("No image in response");
+    if (!imageData) {
+      console.error("No image in response. Full response:", JSON.stringify(data));
       return new Response(
         JSON.stringify({ error: "No image was generated" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -214,7 +241,7 @@ serve(async (req) => {
     }
 
     // Extract base64 data and convert to binary
-    const base64Data = base64ImageUrl.replace(/^data:image\/\w+;base64,/, '');
+    const base64Data = imageData.replace(/^data:image\/\w+;base64,/, '');
     const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
     // Generate unique filename

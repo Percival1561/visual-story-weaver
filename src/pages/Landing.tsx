@@ -305,8 +305,8 @@ const Landing = () => {
                 </ul>
               </CardContent>
               <CardFooter>
-                <Button variant="outline" className="w-full" onClick={() => navigate("/auth")}>
-                  Get Started Free
+                <Button variant="outline" className="w-full" onClick={() => navigate("/app")}>
+                  Start Creating
                 </Button>
               </CardFooter>
             </Card>

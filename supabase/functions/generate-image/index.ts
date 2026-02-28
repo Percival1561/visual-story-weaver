@@ -218,7 +218,8 @@ serve(async (req) => {
     const binaryData = Uint8Array.from(atob(base64Data), c => c.charCodeAt(0));
 
     // Generate unique filename
-    const filename = `${user.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
+    const userId = user?.id || 'anonymous';
+    const filename = `${userId}/${Date.now()}-${Math.random().toString(36).substring(7)}.png`;
 
     // Upload to storage
     const { error: uploadError } = await supabase.storage
@@ -240,37 +241,42 @@ serve(async (req) => {
 
     const publicUrl = urlData.publicUrl;
 
-    // Save to gallery table with user_id
-    const { error: dbError } = await supabase
-      .from('gallery')
-      .insert({
-        image_url: publicUrl,
-        prompt: prompt,
-        user_id: user.id
-      });
+    // Save to gallery table only for signed-in users
+    if (user) {
+      const { error: dbError } = await supabase
+        .from('gallery')
+        .insert({
+          image_url: publicUrl,
+          prompt: prompt,
+          user_id: user.id
+        });
 
-    if (dbError) {
-      console.error("Database insert error:", dbError);
-      // Don't fail the request, image was generated successfully
+      if (dbError) {
+        console.error("Database insert error:", dbError);
+      }
     }
 
-    // Get updated generation count to return to frontend
-    const today = new Date().toISOString().split('T')[0];
-    const { data: updatedGen } = await supabase
-      .from('daily_generations')
-      .select('count')
-      .eq('user_id', user.id)
-      .eq('generation_date', today)
-      .single();
+    // Get updated generation count for signed-in users
+    let generationsUsed = 1;
+    if (user) {
+      const today = new Date().toISOString().split('T')[0];
+      const { data: updatedGen } = await supabase
+        .from('daily_generations')
+        .select('count')
+        .eq('user_id', user.id)
+        .eq('generation_date', today)
+        .single();
+      generationsUsed = updatedGen?.count || 1;
+    }
 
-    console.log("Image saved to storage and database for user:", user.id);
+    console.log("Image generated for:", userId);
 
     return new Response(
       JSON.stringify({ 
         imageUrl: publicUrl,
         description: textResponse,
-        generationsUsed: updatedGen?.count || 1,
-        generationsLimit: hasActiveSubscription ? null : TOTAL_FREE_LIMIT,
+        generationsUsed,
+        generationsLimit: hasActiveSubscription ? null : FREE_DAILY_LIMIT,
         hasSubscription: hasActiveSubscription
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

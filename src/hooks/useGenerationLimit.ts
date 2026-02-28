@@ -138,7 +138,7 @@ export function useGenerationLimit() {
       count: newCount,
     }));
 
-    const remaining = Math.max(0, ANONYMOUS_DAILY_LIMIT - newCount);
+    const remaining = Math.max(0, FREE_DAILY_LIMIT - newCount);
     const limitReached = remaining === 0;
 
     setStatus(prev => ({
@@ -146,7 +146,7 @@ export function useGenerationLimit() {
       generationsUsed: newCount,
       remainingGenerations: remaining,
       limitReached,
-      showSignUpPrompt: limitReached,
+      showProPrompt: limitReached,
     }));
   }, []);
 

@@ -120,7 +120,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         generationsUsed: currentCount, 
-        generationsLimit: TOTAL_FREE_LIMIT,
+        generationsLimit: FREE_DAILY_LIMIT,
         hasSubscription: false,
         isSignedIn: true
       }),

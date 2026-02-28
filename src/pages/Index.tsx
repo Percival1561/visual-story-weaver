@@ -476,7 +476,7 @@ const Index = () => {
       <LimitReachedModal
         open={showLimitModal}
         onOpenChange={setShowLimitModal}
-        variant={!user || showSignUpPrompt ? 'signup' : 'pro'}
+        variant="pro"
       />
     </div>
   );

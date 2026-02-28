@@ -288,7 +288,7 @@ const Landing = () => {
                 <ul className="space-y-3">
                   <li className="flex items-center gap-3 text-sm">
                     <Check className="w-4 h-4 text-primary shrink-0" />
-                    <span><strong>8 AI generations</strong> per day</span>
+                    <span><strong>10 AI generations</strong> per day</span>
                   </li>
                   <li className="flex items-center gap-3 text-sm">
                     <Check className="w-4 h-4 text-primary shrink-0" />

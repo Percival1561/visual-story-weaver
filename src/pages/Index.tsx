@@ -107,7 +107,22 @@ const Index = () => {
           setShowLimitModal(true);
           return;
         }
-        throw error;
+        // Try to parse the error body for a more descriptive message
+        let errorMsg = error.message || "Something went wrong.";
+        try {
+          const body = typeof error.context?.body === 'string' ? JSON.parse(error.context.body) : error.context?.body;
+          if (body?.error) errorMsg = body.error;
+        } catch {}
+        throw new Error(errorMsg);
+      }
+
+      // Also check if the response itself contains an error (non-2xx responses)
+      if (data?.error) {
+        if (data.code === 'LIMIT_REACHED') {
+          setShowLimitModal(true);
+          return;
+        }
+        throw new Error(data.error);
       }
 
       if (data?.imageUrl) {

@@ -234,8 +234,20 @@ serve(async (req) => {
 
     if (!imageData) {
       console.error("No image in response. Full response:", JSON.stringify(data));
+      // Check if the model returned a text refusal (content moderation)
+      const refusalMessage = typeof message?.content === 'string' && message.content.length > 0
+        ? message.content
+        : null;
+      
+      if (refusalMessage) {
+        return new Response(
+          JSON.stringify({ error: refusalMessage }),
+          { status: 422, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
-        JSON.stringify({ error: "No image was generated" }),
+        JSON.stringify({ error: "No image was generated. Please try a different prompt." }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

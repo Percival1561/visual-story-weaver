@@ -24,6 +24,8 @@ const Index = () => {
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [lastFailedPrompt, setLastFailedPrompt] = useState<{ prompt: string; style: string } | null>(null);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const { user, loading, subscription, signOut } = useAuth();

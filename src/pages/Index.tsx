@@ -458,6 +458,25 @@ const Index = () => {
             prompt={currentPrompt}
           />
 
+          {/* Retry button on failure */}
+          {lastError && !isLoading && lastFailedPrompt && (
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-sm text-destructive">{lastError}</p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (lastFailedPrompt) {
+                    handleGenerate(lastFailedPrompt.prompt, lastFailedPrompt.style);
+                  }
+                }}
+                className="border-destructive/50 hover:bg-destructive/10 text-destructive"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          )}
+
           {/* Variation button when viewing an image */}
           {currentImage && isSubscribed && (
             <div className="flex justify-center">

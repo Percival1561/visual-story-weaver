@@ -1,5 +1,17 @@
+import { useState, useEffect, useRef } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { motion, AnimatePresence } from "framer-motion";
+
+const ESTIMATED_SECONDS = 20;
+
+const loadingPhrases = [
+  "Conjuring pixels…",
+  "Mixing colors…",
+  "Rendering imagination…",
+  "Painting your vision…",
+  "Almost there…",
+];
 
 interface ImageDisplayProps {
   imageUrl: string | null;
@@ -8,6 +20,32 @@ interface ImageDisplayProps {
 }
 
 export function ImageDisplay({ imageUrl, isLoading, prompt }: ImageDisplayProps) {
+  const [elapsed, setElapsed] = useState(0);
+  const [phraseIndex, setPhraseIndex] = useState(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (isLoading) {
+      setElapsed(0);
+      setPhraseIndex(0);
+      intervalRef.current = setInterval(() => {
+        setElapsed((prev) => prev + 1);
+      }, 1000);
+      const phraseInterval = setInterval(() => {
+        setPhraseIndex((prev) => (prev + 1) % loadingPhrases.length);
+      }, 3500);
+      return () => {
+        clearInterval(intervalRef.current!);
+        clearInterval(phraseInterval);
+      };
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+  }, [isLoading]);
+
+  const progress = Math.min(elapsed / ESTIMATED_SECONDS, 0.95);
+  const remaining = Math.max(ESTIMATED_SECONDS - elapsed, 1);
+
   const handleDownload = async () => {
     if (!imageUrl) return;
     
@@ -26,17 +64,46 @@ export function ImageDisplay({ imageUrl, isLoading, prompt }: ImageDisplayProps)
   if (isLoading) {
     return (
       <div className="w-full max-w-2xl mx-auto aspect-square rounded-2xl bg-card border border-border flex items-center justify-center overflow-hidden">
-        <div className="text-center space-y-6">
-          <div className="relative">
+        <div className="text-center space-y-6 w-full max-w-xs px-6">
+          {/* Spinner */}
+          <div className="relative mx-auto w-20 h-20">
             <div className="w-20 h-20 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
             <div className="absolute inset-0 flex items-center justify-center">
               <div className="w-12 h-12 rounded-full bg-gradient-primary opacity-50 animate-pulse" />
             </div>
           </div>
+
+          {/* Rotating phrase */}
+          <AnimatePresence mode="wait">
+            <motion.p
+              key={phraseIndex}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3 }}
+              className="text-foreground font-medium h-6"
+            >
+              {loadingPhrases[phraseIndex]}
+            </motion.p>
+          </AnimatePresence>
+
+          {/* Progress bar */}
           <div className="space-y-2">
-            <p className="text-foreground font-medium">Creating your vision...</p>
-            <p className="text-sm text-muted-foreground max-w-xs">{prompt}</p>
+            <div className="w-full h-2 rounded-full bg-secondary overflow-hidden">
+              <motion.div
+                className="h-full rounded-full bg-gradient-primary"
+                initial={{ width: 0 }}
+                animate={{ width: `${progress * 100}%` }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              ~{remaining}s remaining
+            </p>
           </div>
+
+          {/* Prompt */}
+          <p className="text-sm text-muted-foreground max-w-xs line-clamp-2">{prompt}</p>
         </div>
       </div>
     );

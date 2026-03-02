@@ -5,6 +5,8 @@ import { ImageDisplay } from "@/components/ImageDisplay";
 import { Gallery } from "@/components/Gallery";
 import { GenerationCounter } from "@/components/GenerationCounter";
 import { LimitReachedModal } from "@/components/LimitReachedModal";
+import { HistorySidebar } from "@/components/HistorySidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGenerationLimit } from "@/hooks/useGenerationLimit";
@@ -28,6 +30,7 @@ const Index = () => {
   const [lastFailedPrompt, setLastFailedPrompt] = useState<{ prompt: string; style: string } | null>(null);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [showLimitModal, setShowLimitModal] = useState(false);
+  const [reusedPrompt, setReusedPrompt] = useState("");
   const { user, loading, subscription, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -353,173 +356,186 @@ const Index = () => {
   const isTrial = subscription?.trial;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Background effects */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-0 left-1/4 w-96 h-96 bg-glow-primary/10 rounded-full blur-3xl" />
-        <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-glow-accent/10 rounded-full blur-3xl" />
-      </div>
+    <SidebarProvider defaultOpen={false}>
+      <div className="min-h-screen flex w-full bg-background">
+        <HistorySidebar
+          images={gallery}
+          onSelect={handleSelectGalleryImage}
+          onReusePrompt={(prompt) => setReusedPrompt(prompt + " ")} 
+        />
 
-      <div className="relative z-10 container mx-auto px-4 py-12 space-y-16">
-        {/* Header */}
-        <header className="text-center space-y-4">
-          {/* Auth & Subscription buttons */}
-          <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
-            {/* Generation Counter */}
-            <GenerationCounter 
-              used={generationsUsed} 
-              limit={generationsLimit} 
-              hasSubscription={isSubscribed} 
-            />
-            
-            <div className="flex items-center gap-3 flex-wrap">
-              {user ? (
-                <>
-                  <span className="text-sm text-muted-foreground flex items-center gap-2">
-                    <User className="w-4 h-4" />
-                    {user.email}
-                  </span>
-                  
-                  {isSubscribed ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary flex items-center gap-1">
-                        <Crown className="w-3 h-3" />
-                        {isTrial ? "Trial" : "Pro"}
+        <div className="flex-1 flex flex-col min-w-0">
+          {/* Background effects */}
+          <div className="fixed inset-0 overflow-hidden pointer-events-none">
+            <div className="absolute top-0 left-1/4 w-96 h-96 bg-glow-primary/10 rounded-full blur-3xl" />
+            <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-glow-accent/10 rounded-full blur-3xl" />
+          </div>
+
+          <div className="relative z-10 container mx-auto px-4 py-12 space-y-16">
+            {/* Header */}
+            <header className="text-center space-y-4">
+              {/* Auth & Subscription buttons */}
+              <div className="flex justify-between items-center mb-4 gap-3 flex-wrap">
+                {/* Sidebar trigger + Generation Counter */}
+                <div className="flex items-center gap-3">
+                  <SidebarTrigger className="text-muted-foreground hover:text-foreground" />
+                  <GenerationCounter 
+                    used={generationsUsed} 
+                    limit={generationsLimit} 
+                    hasSubscription={isSubscribed} 
+                  />
+                </div>
+                
+                <div className="flex items-center gap-3 flex-wrap">
+                  {user ? (
+                    <>
+                      <span className="text-sm text-muted-foreground flex items-center gap-2">
+                        <User className="w-4 h-4" />
+                        {user.email}
                       </span>
-                      <Button variant="outline" size="sm" onClick={handleManageSubscription}>
-                        Manage
+                      
+                      {isSubscribed ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs px-2 py-1 rounded-full bg-primary/20 text-primary flex items-center gap-1">
+                            <Crown className="w-3 h-3" />
+                            {isTrial ? "Trial" : "Pro"}
+                          </span>
+                          <Button variant="outline" size="sm" onClick={handleManageSubscription}>
+                            Manage
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button 
+                          size="sm" 
+                          onClick={handleStartTrial}
+                          className="bg-gradient-primary text-primary-foreground shadow-glow"
+                        >
+                          <Crown className="w-4 h-4 mr-2" />
+                          Start Free Trial
+                        </Button>
+                      )}
+                      
+                      <Button variant="outline" size="sm" onClick={handleSignOut}>
+                        <LogOut className="w-4 h-4 mr-2" />
+                        Sign Out
                       </Button>
-                    </div>
+                    </>
                   ) : (
-                    <Button 
-                      size="sm" 
-                      onClick={handleStartTrial}
-                      className="bg-gradient-primary text-primary-foreground shadow-glow"
-                    >
-                      <Crown className="w-4 h-4 mr-2" />
-                      Start Free Trial
+                    <Button variant="outline" size="sm" onClick={() => navigate("/auth")}>
+                      <LogIn className="w-4 h-4 mr-2" />
+                      Sign In
                     </Button>
                   )}
-                  
-                  <Button variant="outline" size="sm" onClick={handleSignOut}>
-                    <LogOut className="w-4 h-4 mr-2" />
-                    Sign Out
-                  </Button>
-                </>
-              ) : (
-                <Button variant="outline" size="sm" onClick={() => navigate("/auth")}>
-                  <LogIn className="w-4 h-4 mr-2" />
-                  Sign In
-                </Button>
-              )}
-            </div>
-          </div>
-
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border text-sm text-muted-foreground">
-            <Sparkles className="w-4 h-4 text-primary" />
-            AI-Powered Image Generation
-          </div>
-          <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
-            <span className="bg-gradient-primary bg-clip-text text-transparent">Visionary</span>
-          </h1>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
-            Transform your ideas into stunning visuals. Just describe what you imagine.
-          </p>
-
-          {/* Subscription CTA for non-subscribers */}
-          {user && !isSubscribed && !limitReached && (
-            <div className="max-w-md mx-auto mt-6 p-4 rounded-xl bg-card border border-border">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center shrink-0">
-                  <Crown className="w-6 h-6 text-primary-foreground" />
                 </div>
-                <div className="text-left">
-                  <h3 className="font-semibold text-foreground">Unlock Visionary Pro</h3>
-                  <p className="text-sm text-muted-foreground">3-day free trial, then $9.99/month</p>
-                </div>
-                <Button 
-                  onClick={handleStartTrial}
-                  className="shrink-0 bg-gradient-primary text-primary-foreground"
-                >
-                  Start Trial
-                </Button>
               </div>
-            </div>
-          )}
-        </header>
 
-        {/* Main content */}
-        <main className="space-y-12">
-          <PromptInput onGenerate={handleGenerate} isLoading={isLoading} />
-          
-          <ImageDisplay 
-            imageUrl={currentImage} 
-            isLoading={isLoading} 
-            prompt={currentPrompt}
+              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border text-sm text-muted-foreground">
+                <Sparkles className="w-4 h-4 text-primary" />
+                AI-Powered Image Generation
+              </div>
+              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
+                <span className="bg-gradient-primary bg-clip-text text-transparent">Visionary</span>
+              </h1>
+              <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+                Transform your ideas into stunning visuals. Just describe what you imagine.
+              </p>
+
+              {/* Subscription CTA for non-subscribers */}
+              {user && !isSubscribed && !limitReached && (
+                <div className="max-w-md mx-auto mt-6 p-4 rounded-xl bg-card border border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-gradient-primary flex items-center justify-center shrink-0">
+                      <Crown className="w-6 h-6 text-primary-foreground" />
+                    </div>
+                    <div className="text-left">
+                      <h3 className="font-semibold text-foreground">Unlock Visionary Pro</h3>
+                      <p className="text-sm text-muted-foreground">3-day free trial, then $9.99/month</p>
+                    </div>
+                    <Button 
+                      onClick={handleStartTrial}
+                      className="shrink-0 bg-gradient-primary text-primary-foreground"
+                    >
+                      Start Trial
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </header>
+
+            {/* Main content */}
+            <main className="space-y-12">
+              <PromptInput onGenerate={handleGenerate} isLoading={isLoading} externalPrompt={reusedPrompt} />
+              
+              <ImageDisplay 
+                imageUrl={currentImage} 
+                isLoading={isLoading} 
+                prompt={currentPrompt}
+              />
+
+              {/* Retry button on failure */}
+              {lastError && !isLoading && lastFailedPrompt && (
+                <div className="flex flex-col items-center gap-3">
+                  <p className="text-sm text-destructive">{lastError}</p>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      if (lastFailedPrompt) {
+                        handleGenerate(lastFailedPrompt.prompt, lastFailedPrompt.style);
+                      }
+                    }}
+                    className="border-destructive/50 hover:bg-destructive/10 text-destructive"
+                  >
+                    <RotateCcw className="w-4 h-4 mr-2" />
+                    Retry
+                  </Button>
+                </div>
+              )}
+
+              {/* Variation button when viewing an image */}
+              {currentImage && isSubscribed && (
+                <div className="flex justify-center">
+                  <Button
+                    onClick={() => {
+                      const currentGalleryImage = gallery.find(img => img.imageUrl === currentImage);
+                      if (currentGalleryImage) {
+                        handleVariation(currentGalleryImage);
+                      }
+                    }}
+                    variant="outline"
+                    className="border-primary/50 hover:bg-primary/10"
+                  >
+                    <Wand2 className="w-4 h-4 mr-2" />
+                    Create Variation
+                  </Button>
+                </div>
+              )}
+
+              <Gallery 
+                images={gallery} 
+                onSelect={handleSelectGalleryImage}
+                onDelete={handleDeleteImage}
+                onShare={handleShareImage}
+                onUnshare={handleUnshareImage}
+                canDelete={!!user}
+                canShare={!!user && isSubscribed}
+              />
+            </main>
+
+            {/* Footer */}
+            <footer className="text-center text-sm text-muted-foreground pt-12 border-t border-border">
+              <p>Powered by AI • Create unlimited visual masterpieces</p>
+            </footer>
+          </div>
+
+          {/* Limit Reached Modal */}
+          <LimitReachedModal
+            open={showLimitModal}
+            onOpenChange={setShowLimitModal}
+            variant="pro"
           />
-
-          {/* Retry button on failure */}
-          {lastError && !isLoading && lastFailedPrompt && (
-            <div className="flex flex-col items-center gap-3">
-              <p className="text-sm text-destructive">{lastError}</p>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (lastFailedPrompt) {
-                    handleGenerate(lastFailedPrompt.prompt, lastFailedPrompt.style);
-                  }
-                }}
-                className="border-destructive/50 hover:bg-destructive/10 text-destructive"
-              >
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Retry
-              </Button>
-            </div>
-          )}
-
-          {/* Variation button when viewing an image */}
-          {currentImage && isSubscribed && (
-            <div className="flex justify-center">
-              <Button
-                onClick={() => {
-                  const currentGalleryImage = gallery.find(img => img.imageUrl === currentImage);
-                  if (currentGalleryImage) {
-                    handleVariation(currentGalleryImage);
-                  }
-                }}
-                variant="outline"
-                className="border-primary/50 hover:bg-primary/10"
-              >
-                <Wand2 className="w-4 h-4 mr-2" />
-                Create Variation
-              </Button>
-            </div>
-          )}
-
-          <Gallery 
-            images={gallery} 
-            onSelect={handleSelectGalleryImage}
-            onDelete={handleDeleteImage}
-            onShare={handleShareImage}
-            onUnshare={handleUnshareImage}
-            canDelete={!!user}
-            canShare={!!user && isSubscribed}
-          />
-        </main>
-
-        {/* Footer */}
-        <footer className="text-center text-sm text-muted-foreground pt-12 border-t border-border">
-          <p>Powered by AI • Create unlimited visual masterpieces</p>
-        </footer>
+        </div>
       </div>
-
-      {/* Limit Reached Modal */}
-      <LimitReachedModal
-        open={showLimitModal}
-        onOpenChange={setShowLimitModal}
-        variant="pro"
-      />
-    </div>
+    </SidebarProvider>
   );
 };
 

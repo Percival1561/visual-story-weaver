@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Sparkles, Wand2 } from "lucide-react";
@@ -6,6 +6,7 @@ import { Sparkles, Wand2 } from "lucide-react";
 interface PromptInputProps {
   onGenerate: (prompt: string, style: string) => void;
   isLoading: boolean;
+  externalPrompt?: string;
 }
 
 const stylePresets = [
@@ -19,9 +20,15 @@ const stylePresets = [
   { id: "pixel-art", label: "Pixel Art", description: "in retro pixel art style with visible pixels and limited color palette" },
 ];
 
-export function PromptInput({ onGenerate, isLoading }: PromptInputProps) {
+export function PromptInput({ onGenerate, isLoading, externalPrompt }: PromptInputProps) {
   const [prompt, setPrompt] = useState("");
   const [selectedStyle, setSelectedStyle] = useState("none");
+
+  useEffect(() => {
+    if (externalPrompt !== undefined && externalPrompt !== "") {
+      setPrompt(externalPrompt);
+    }
+  }, [externalPrompt]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

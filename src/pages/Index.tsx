@@ -95,6 +95,8 @@ const Index = () => {
     setIsLoading(true);
     setCurrentPrompt(prompt);
     setCurrentImage(null);
+    setLastError(null);
+    setLastFailedPrompt({ prompt, style });
 
     const fullPrompt = style ? `${prompt}, ${style}` : prompt;
 

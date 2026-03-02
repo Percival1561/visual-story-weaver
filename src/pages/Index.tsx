@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useGenerationLimit } from "@/hooks/useGenerationLimit";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogIn, LogOut, User, Crown, Wand2 } from "lucide-react";
+import { Sparkles, LogIn, LogOut, User, Crown, Wand2, RotateCcw } from "lucide-react";
 
 interface GalleryImage {
   id: string;
@@ -24,6 +24,8 @@ const Index = () => {
   const [currentImage, setCurrentImage] = useState<string | null>(null);
   const [currentPrompt, setCurrentPrompt] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [lastFailedPrompt, setLastFailedPrompt] = useState<{ prompt: string; style: string } | null>(null);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const { user, loading, subscription, signOut } = useAuth();
@@ -93,6 +95,8 @@ const Index = () => {
     setIsLoading(true);
     setCurrentPrompt(prompt);
     setCurrentImage(null);
+    setLastError(null);
+    setLastFailedPrompt({ prompt, style });
 
     const fullPrompt = style ? `${prompt}, ${style}` : prompt;
 
@@ -127,6 +131,7 @@ const Index = () => {
 
       if (data?.imageUrl) {
         setCurrentImage(data.imageUrl);
+        setLastFailedPrompt(null);
         
         // For anonymous users, increment localStorage counter
         if (!user) {
@@ -178,9 +183,11 @@ const Index = () => {
         } catch (e) {}
       }
       
+      const errorMsg = error.message || "Something went wrong. Please try again.";
+      setLastError(errorMsg);
       toast({
         title: "Generation failed",
-        description: error.message || "Something went wrong. Please try again.",
+        description: errorMsg,
         variant: "destructive",
       });
     } finally {
@@ -450,6 +457,25 @@ const Index = () => {
             isLoading={isLoading} 
             prompt={currentPrompt}
           />
+
+          {/* Retry button on failure */}
+          {lastError && !isLoading && lastFailedPrompt && (
+            <div className="flex flex-col items-center gap-3">
+              <p className="text-sm text-destructive">{lastError}</p>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  if (lastFailedPrompt) {
+                    handleGenerate(lastFailedPrompt.prompt, lastFailedPrompt.style);
+                  }
+                }}
+                className="border-destructive/50 hover:bg-destructive/10 text-destructive"
+              >
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          )}
 
           {/* Variation button when viewing an image */}
           {currentImage && isSubscribed && (

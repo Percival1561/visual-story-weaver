@@ -131,6 +131,7 @@ const Index = () => {
 
       if (data?.imageUrl) {
         setCurrentImage(data.imageUrl);
+        setLastFailedPrompt(null);
         
         // For anonymous users, increment localStorage counter
         if (!user) {

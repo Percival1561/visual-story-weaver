@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useGenerationLimit } from "@/hooks/useGenerationLimit";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogIn, LogOut, User, Crown, Wand2 } from "lucide-react";
+import { Sparkles, LogIn, LogOut, User, Crown, Wand2, RotateCcw } from "lucide-react";
 
 interface GalleryImage {
   id: string;

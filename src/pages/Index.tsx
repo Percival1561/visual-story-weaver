@@ -5,6 +5,8 @@ import { ImageDisplay } from "@/components/ImageDisplay";
 import { Gallery } from "@/components/Gallery";
 import { GenerationCounter } from "@/components/GenerationCounter";
 import { LimitReachedModal } from "@/components/LimitReachedModal";
+import { HistorySidebar } from "@/components/HistorySidebar";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useGenerationLimit } from "@/hooks/useGenerationLimit";

@@ -33,7 +33,7 @@ export function HistorySidebar({ images, onSelect, onReusePrompt }: HistorySideb
   return (
     <Sidebar collapsible="icon" side="left">
       <SidebarContent>
-        <SidebarGroup defaultOpen>
+        <SidebarGroup>
           <SidebarGroupLabel className="flex items-center gap-2">
             <History className="w-4 h-4" />
             {!collapsed && <span>History</span>}

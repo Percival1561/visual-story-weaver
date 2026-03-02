@@ -30,7 +30,7 @@ const Index = () => {
   const [lastFailedPrompt, setLastFailedPrompt] = useState<{ prompt: string; style: string } | null>(null);
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [showLimitModal, setShowLimitModal] = useState(false);
-  const { user, loading, subscription, signOut } = useAuth();
+  const [reusedPrompt, setReusedPrompt] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
   

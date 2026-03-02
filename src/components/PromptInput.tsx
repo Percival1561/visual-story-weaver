@@ -20,9 +20,15 @@ const stylePresets = [
   { id: "pixel-art", label: "Pixel Art", description: "in retro pixel art style with visible pixels and limited color palette" },
 ];
 
-export function PromptInput({ onGenerate, isLoading }: PromptInputProps) {
+export function PromptInput({ onGenerate, isLoading, externalPrompt }: PromptInputProps) {
   const [prompt, setPrompt] = useState("");
   const [selectedStyle, setSelectedStyle] = useState("none");
+
+  useEffect(() => {
+    if (externalPrompt !== undefined && externalPrompt !== "") {
+      setPrompt(externalPrompt);
+    }
+  }, [externalPrompt]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

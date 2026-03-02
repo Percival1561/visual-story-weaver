@@ -31,6 +31,7 @@ const Index = () => {
   const [gallery, setGallery] = useState<GalleryImage[]>([]);
   const [showLimitModal, setShowLimitModal] = useState(false);
   const [reusedPrompt, setReusedPrompt] = useState("");
+  const { user, loading, subscription, signOut } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
   

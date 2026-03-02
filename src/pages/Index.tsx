@@ -183,9 +183,11 @@ const Index = () => {
         } catch (e) {}
       }
       
+      const errorMsg = error.message || "Something went wrong. Please try again.";
+      setLastError(errorMsg);
       toast({
         title: "Generation failed",
-        description: error.message || "Something went wrong. Please try again.",
+        description: errorMsg,
         variant: "destructive",
       });
     } finally {

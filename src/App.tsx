@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Landing from "./pages/Landing";
 import Index from "./pages/Index";
+import Clipper from "./pages/Clipper";
 import Auth from "./pages/Auth";
 import SharedImage from "./pages/SharedImage";
 import SubscriptionSuccess from "./pages/SubscriptionSuccess";
@@ -23,6 +24,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/app" element={<Index />} />
+            <Route path="/clipper" element={<Clipper />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/shared/:shareId" element={<SharedImage />} />
             <Route path="/subscription-success" element={<SubscriptionSuccess />} />

@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useGenerationLimit } from "@/hooks/useGenerationLimit";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
-import { Sparkles, LogIn, LogOut, User, Crown, Wand2, RotateCcw } from "lucide-react";
+import { Sparkles, LogIn, LogOut, User, Crown, Wand2, RotateCcw, Scissors } from "lucide-react";
 
 interface GalleryImage {
   id: string;
@@ -387,6 +387,10 @@ const Index = () => {
                 </div>
                 
                 <div className="flex items-center gap-3 flex-wrap">
+                  <Button variant="ghost" size="sm" onClick={() => navigate("/clipper")}>
+                    <Scissors className="w-4 h-4 mr-2" />
+                    Clipper
+                  </Button>
                   {user ? (
                     <>
                       <span className="text-sm text-muted-foreground flex items-center gap-2">

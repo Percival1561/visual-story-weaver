@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Progress } from "@/components/ui/progress";
 import { Textarea } from "@/components/ui/textarea";
-import { Sparkles, Upload, Scissors, Download, Copy, X, Loader2, Image as ImageIcon, Type, Package } from "lucide-react";
+import { Sparkles, Upload, Scissors, Download, Copy, X, Loader2, Image as ImageIcon, Type, Package, Check, FileText, Smartphone, Monitor, Tablet, Frame } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import JSZip from "jszip";
@@ -39,6 +39,33 @@ const CAPTION_POSITIONS = [
   { id: "top", label: "Top" },
   { id: "middle", label: "Middle" },
   { id: "bottom", label: "Bottom" },
+];
+
+type RatioId = "9:16" | "16:9" | "3:4" | "fit";
+const RATIOS: { id: RatioId; label: string; subtitle: string; w: number; h: number; tag: string; platforms: string }[] = [
+  { id: "9:16", label: "9:16", subtitle: "Portrait — TikTok, Reels, Shorts, Snap", w: 36, h: 64, tag: "9x16", platforms: "TikTok, Instagram Reels, YouTube Shorts, Snapchat" },
+  { id: "16:9", label: "16:9", subtitle: "Landscape — YouTube, Twitter, LinkedIn", w: 64, h: 36, tag: "16x9", platforms: "YouTube, Twitter, LinkedIn" },
+  { id: "3:4", label: "3:4", subtitle: "Square-ish — Instagram Feed, Pinterest", w: 48, h: 64, tag: "3x4", platforms: "Instagram Feed, Pinterest" },
+  { id: "fit", label: "Fit", subtitle: "Auto — Matches source video dimensions", w: 56, h: 56, tag: "fit", platforms: "Native source platforms" },
+];
+
+type DeviceId = "none" | "iphone" | "android" | "desktop" | "tablet";
+const DEVICES: { id: DeviceId; label: string; icon?: any }[] = [
+  { id: "none", label: "No Frame", icon: Frame },
+  { id: "iphone", label: "iPhone", icon: Smartphone },
+  { id: "android", label: "Android", icon: Smartphone },
+  { id: "desktop", label: "Desktop", icon: Monitor },
+  { id: "tablet", label: "Tablet", icon: Tablet },
+];
+
+type CropId =
+  | "left top" | "center top" | "right top"
+  | "left center" | "center center" | "right center"
+  | "left bottom" | "center bottom" | "right bottom";
+const CROPS: { id: CropId; arrow: string }[] = [
+  { id: "left top", arrow: "↖" }, { id: "center top", arrow: "↑" }, { id: "right top", arrow: "↗" },
+  { id: "left center", arrow: "←" }, { id: "center center", arrow: "✛" }, { id: "right center", arrow: "→" },
+  { id: "left bottom", arrow: "↙" }, { id: "center bottom", arrow: "↓" }, { id: "right bottom", arrow: "↘" },
 ];
 
 const STYLE_REASONS: Record<string, string[]> = {
@@ -93,7 +120,7 @@ interface ClipResult {
   blob?: Blob;
   thumbnail?: string;
   extracting: boolean;
-  extractProgress: number; // 0..100
+  extractProgress: number;
   fallback: boolean;
   captionLoading: boolean;
   caption: string;
@@ -105,10 +132,16 @@ const formatTime = (s: number) => {
   const sec = Math.floor(s % 60);
   return `${m}:${sec.toString().padStart(2, "0")}`;
 };
+const formatTimeFile = (s: number) => {
+  const m = Math.floor(s / 60);
+  const sec = Math.floor(s % 60);
+  return `${m}m${sec.toString().padStart(2, "0")}s`;
+};
 const formatBytes = (bytes: number) => {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 };
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const Clipper = () => {
   const navigate = useNavigate();
@@ -125,11 +158,15 @@ const Clipper = () => {
   const [clipStyle, setClipStyle] = useState("Hook-First");
   const [numClips, setNumClips] = useState(3);
 
-  // Caption styling controls
-  const [captionFont, setCaptionFont] = useState(CAPTION_FONTS[1].id); // Impact default
+  const [captionFont, setCaptionFont] = useState(CAPTION_FONTS[1].id);
   const [captionStyle, setCaptionStyle] = useState("background");
   const [captionPosition, setCaptionPosition] = useState("bottom");
   const [captionSize, setCaptionSize] = useState(28);
+
+  // Frame & Format
+  const [ratio, setRatio] = useState<RatioId>("9:16");
+  const [device, setDevice] = useState<DeviceId>("none");
+  const [crop, setCrop] = useState<CropId>("center center");
 
   const [processing, setProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
@@ -137,6 +174,15 @@ const Clipper = () => {
   const [zipping, setZipping] = useState(false);
 
   const [clips, setClips] = useState<ClipResult[]>([]);
+
+  // Per-clip flash states for buttons
+  const [videoFlash, setVideoFlash] = useState<Record<string, boolean>>({});
+  const [captionFlash, setCaptionFlash] = useState<Record<string, boolean>>({});
+  const [captionDownloading, setCaptionDownloading] = useState<Record<string, boolean>>({});
+
+  // Bulk download progress
+  const [bulkProgress, setBulkProgress] = useState<{ current: number; total: number } | null>(null);
+  const [bulkDone, setBulkDone] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -227,7 +273,6 @@ const Clipper = () => {
     });
   };
 
-  // Extract a clip and report progress (0..100) via onProgress
   const extractClip = async (
     sourceUrl: string,
     start: number,
@@ -327,6 +372,7 @@ const Clipper = () => {
     setProgress(0);
     setStatusIdx(0);
     setClips([]);
+    setBulkDone(null);
 
     const cycleStart = Date.now();
     const totalMs = STATUS_MESSAGES.length * 2000;
@@ -385,7 +431,6 @@ const Clipper = () => {
       });
     } catch {}
 
-    // Kick off captions in parallel
     plan.forEach(async (c) => {
       try {
         const cap = await fetchCaption(c);
@@ -398,7 +443,6 @@ const Clipper = () => {
       }
     });
 
-    // Extract clips sequentially (recorder is single-stream)
     for (let i = 0; i < plan.length; i++) {
       const c = plan[i];
       let thumb: string | undefined;
@@ -419,27 +463,114 @@ const Clipper = () => {
     setProcessing(false);
   };
 
-  const handleDownload = (clip: ClipResult) => {
-    if (clip.blobUrl) {
-      const a = document.createElement("a");
-      a.href = clip.blobUrl;
-      a.download = `clip-${clip.index}.webm`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-    } else {
-      if (!file) return;
-      const a = document.createElement("a");
-      a.href = URL.createObjectURL(file);
-      a.download = `clip-${clip.index}-${file.name}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      toast({
-        title: "Download started",
-        description: "Clip extraction unsupported in this browser — downloaded source video instead.",
-      });
+  const styleSlug = (s: string) => s.toLowerCase().replace(/\s+/g, "-");
+  const ratioTag = () => RATIOS.find((r) => r.id === ratio)?.tag || "fit";
+
+  const buildVideoFilename = (clip: ClipResult) =>
+    `clip-${clip.index}_${formatTimeFile(clip.start)}-${formatTimeFile(clip.end)}_${styleSlug(clipStyle)}_${ratioTag()}.mp4`;
+
+  const buildCaptionFilename = (clip: ClipResult) => `clip-${clip.index}_caption.txt`;
+
+  const buildCaptionText = (clip: ClipResult) => {
+    const platformLabels = clip.platforms.map((pid) => PLATFORMS.find((p) => p.id === pid)?.label || pid).join(", ");
+    const raw = (clip.caption || "").trim();
+    const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean);
+    const hashtagLine = lines.find((l) => l.startsWith("#")) || "";
+    const captionLine = lines.find((l) => !l.startsWith("#")) || raw.split("\n")[0] || "";
+    const ratioInfo = RATIOS.find((r) => r.id === ratio)!;
+    const deviceLabel = DEVICES.find((d) => d.id === device)?.label || "No Frame";
+    return [
+      captionLine,
+      "",
+      hashtagLine,
+      "",
+      `Platform targets: ${platformLabels}`,
+      `Clip duration: ${Math.round(clip.end - clip.start)}s`,
+      `Virality score: ${clip.score}%`,
+      `Clip style: ${clipStyle}`,
+      "",
+      `Output format: ${ratioInfo.label} ${ratioInfo.subtitle.split("—")[0].trim()}`,
+      `Device frame preview: ${deviceLabel}`,
+      `Crop focus: ${crop.replace(/\b\w/g, (c) => c.toUpperCase())}`,
+      `Recommended platforms: ${ratioInfo.platforms}`,
+    ].join("\n");
+  };
+
+  const triggerDownload = (href: string, filename: string) => {
+    const a = document.createElement("a");
+    a.href = href;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  const flashVideo = (id: string) => {
+    setVideoFlash((p) => ({ ...p, [id]: true }));
+    setTimeout(() => setVideoFlash((p) => ({ ...p, [id]: false })), 1800);
+  };
+  const flashCaption = (id: string) => {
+    setCaptionFlash((p) => ({ ...p, [id]: true }));
+    setTimeout(() => setCaptionFlash((p) => ({ ...p, [id]: false })), 1800);
+  };
+
+  const downloadVideoFor = (clip: ClipResult) => {
+    if (!clip.blobUrl) return false;
+    const ext = (clip.blob?.type.includes("webm") ? "webm" : "mp4");
+    const filename = buildVideoFilename(clip).replace(/\.mp4$/, `.${ext}`);
+    triggerDownload(clip.blobUrl, filename);
+    flashVideo(clip.id);
+    return true;
+  };
+
+  const downloadCaptionFor = async (clip: ClipResult, silent = false) => {
+    let caption = clip.caption;
+    if (!caption) {
+      setCaptionDownloading((p) => ({ ...p, [clip.id]: true }));
+      try {
+        caption = await fetchCaption(clip);
+        updateClip(clip.id, { caption });
+      } catch {
+        if (!silent) toast({ title: "Caption generation failed", description: "Try again.", variant: "destructive" });
+        setCaptionDownloading((p) => ({ ...p, [clip.id]: false }));
+        return false;
+      }
+      setCaptionDownloading((p) => ({ ...p, [clip.id]: false }));
     }
+    const text = buildCaptionText({ ...clip, caption });
+    const blob = new Blob([text], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    triggerDownload(url, buildCaptionFilename(clip));
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    flashCaption(clip.id);
+    return true;
+  };
+
+  const downloadAllForClip = async (clip: ClipResult) => {
+    downloadVideoFor(clip);
+    await sleep(400);
+    await downloadCaptionFor(clip, true);
+    toast({ title: `Clip ${clip.index} assets downloaded ✓`, description: "Video + caption saved." });
+  };
+
+  const downloadAllClips = async () => {
+    const ready = clips.filter((c) => !c.extracting && c.blobUrl);
+    if (ready.length === 0) {
+      toast({ title: "No clips ready", description: "Wait for clips to finish extracting.", variant: "destructive" });
+      return;
+    }
+    setBulkDone(null);
+    setBulkProgress({ current: 0, total: ready.length });
+    for (let i = 0; i < ready.length; i++) {
+      setBulkProgress({ current: i + 1, total: ready.length });
+      const c = ready[i];
+      downloadVideoFor(c);
+      await sleep(600);
+      await downloadCaptionFor(c, true);
+      if (i < ready.length - 1) await sleep(600);
+    }
+    setBulkProgress(null);
+    setBulkDone(ready.length);
   };
 
   const handleDownloadZip = async () => {
@@ -453,30 +584,22 @@ const Clipper = () => {
       const zip = new JSZip();
       for (const c of ready) {
         if (c.blob) {
-          zip.file(`clip-${c.index}.webm`, c.blob);
+          const ext = c.blob.type.includes("webm") ? "webm" : "mp4";
+          zip.file(buildVideoFilename(c).replace(/\.mp4$/, `.${ext}`), c.blob);
         }
         if (c.caption) {
-          zip.file(`clip-${c.index}-caption.txt`, c.caption);
+          zip.file(buildCaptionFilename(c), buildCaptionText(c));
         }
       }
       const meta = ready.map((c) => ({
-        index: c.index,
-        start: c.start,
-        end: c.end,
-        score: c.score,
-        reason: c.reason,
-        platforms: c.platforms,
-        caption: c.caption,
+        index: c.index, start: c.start, end: c.end, score: c.score,
+        reason: c.reason, platforms: c.platforms, caption: c.caption,
+        ratio, device, crop,
       }));
       zip.file("clips.json", JSON.stringify(meta, null, 2));
       const blob = await zip.generateAsync({ type: "blob" });
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `clipper-${Date.now()}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      triggerDownload(url, `clipper-${Date.now()}.zip`);
       URL.revokeObjectURL(url);
       toast({ title: "Download ready", description: `Bundled ${ready.length} clip${ready.length > 1 ? "s" : ""} into ZIP.` });
     } catch (e) {
@@ -496,7 +619,7 @@ const Clipper = () => {
       }
       await navigator.clipboard.writeText(text);
       toast({ title: "Copied!", description: "Caption copied to clipboard." });
-    } catch (e) {
+    } catch {
       toast({ title: "Copy failed", description: "Could not copy caption.", variant: "destructive" });
     }
   };
@@ -530,15 +653,9 @@ const Clipper = () => {
       pointerEvents: "none",
       letterSpacing: "0.01em",
     };
-    if (captionStyle === "outline") {
-      return { ...base, color: "#fff", textShadow: "-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 2px 6px rgba(0,0,0,.6)" };
-    }
-    if (captionStyle === "background") {
-      return { ...base, color: "#fff", background: "rgba(0,0,0,0.72)", padding: "6px 12px", borderRadius: 6 };
-    }
-    if (captionStyle === "neon") {
-      return { ...base, color: "#fff", textShadow: "0 0 6px hsl(var(--primary)),0 0 14px hsl(var(--primary)),0 0 22px hsl(var(--primary))" };
-    }
+    if (captionStyle === "outline") return { ...base, color: "#fff", textShadow: "-2px -2px 0 #000,2px -2px 0 #000,-2px 2px 0 #000,2px 2px 0 #000,0 2px 6px rgba(0,0,0,.6)" };
+    if (captionStyle === "background") return { ...base, color: "#fff", background: "rgba(0,0,0,0.72)", padding: "6px 12px", borderRadius: 6 };
+    if (captionStyle === "neon") return { ...base, color: "#fff", textShadow: "0 0 6px hsl(var(--primary)),0 0 14px hsl(var(--primary)),0 0 22px hsl(var(--primary))" };
     return { ...base, color: "#fff", textShadow: "0 1px 3px rgba(0,0,0,.7)" };
   })();
 
@@ -547,6 +664,15 @@ const Clipper = () => {
     : captionPosition === "middle"
     ? "top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
     : "bottom-3 left-1/2 -translate-x-1/2";
+
+  const ratioCss: React.CSSProperties =
+    ratio === "9:16" ? { aspectRatio: "9 / 16" } :
+    ratio === "16:9" ? { aspectRatio: "16 / 9" } :
+    ratio === "3:4" ? { aspectRatio: "3 / 4" } :
+    {}; // fit = native
+
+  const deviceLabel = DEVICES.find((d) => d.id === device)?.label || "No Frame";
+  const ratioLabel = RATIOS.find((r) => r.id === ratio)?.label || "Fit";
 
   return (
     <div className="min-h-screen bg-background relative">
@@ -595,13 +721,7 @@ const Clipper = () => {
               dragOver ? "border-primary bg-primary/5" : "border-border bg-card/50"
             } ${!file ? "cursor-pointer hover:border-primary/60" : ""}`}
           >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".mp4,.mov,.avi,.webm,video/*"
-              onChange={handleFileInput}
-              className="hidden"
-            />
+            <input ref={fileInputRef} type="file" accept=".mp4,.mov,.avi,.webm,video/*" onChange={handleFileInput} className="hidden" />
             {!file ? (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-4">
@@ -612,12 +732,8 @@ const Clipper = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                <video
-                  src={videoUrl!}
-                  controls
-                  className="w-full rounded-lg max-h-[400px] bg-black"
-                  onLoadedMetadata={(e) => setDuration((e.target as HTMLVideoElement).duration)}
-                />
+                <video src={videoUrl!} controls className="w-full rounded-lg max-h-[400px] bg-black"
+                  onLoadedMetadata={(e) => setDuration((e.target as HTMLVideoElement).duration)} />
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="text-sm text-muted-foreground space-y-0.5">
                     <p className="font-medium text-foreground truncate max-w-md">{file.name}</p>
@@ -630,9 +746,7 @@ const Clipper = () => {
               </div>
             )}
           </div>
-          {uploadError && (
-            <p className="mt-3 text-sm text-destructive text-center">{uploadError}</p>
-          )}
+          {uploadError && <p className="mt-3 text-sm text-destructive text-center">{uploadError}</p>}
         </section>
 
         {/* Settings */}
@@ -641,16 +755,8 @@ const Clipper = () => {
             <p className="text-xs text-muted-foreground mb-2">Clip Length</p>
             <div className="flex flex-wrap gap-2">
               {CLIP_LENGTHS.map((l) => (
-                <button
-                  key={l}
-                  type="button"
-                  onClick={() => setClipLength(l)}
-                  className={`text-xs px-3 py-1.5 rounded-full transition-all ${
-                    clipLength === l
-                      ? "bg-primary text-primary-foreground shadow-glow"
-                      : "bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  }`}
-                >
+                <button key={l} type="button" onClick={() => setClipLength(l)}
+                  className={`text-xs px-3 py-1.5 rounded-full transition-all ${clipLength === l ? "bg-primary text-primary-foreground shadow-glow" : "bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
                   {l}s
                 </button>
               ))}
@@ -663,14 +769,8 @@ const Clipper = () => {
               {PLATFORMS.map((p) => {
                 const selected = platforms.includes(p.id);
                 return (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => togglePlatform(p.id)}
-                    className={`text-xs px-3 py-1.5 rounded-full border transition-all ${
-                      selected ? `${p.className} shadow-md` : "bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary hover:text-foreground"
-                    }`}
-                  >
+                  <button key={p.id} type="button" onClick={() => togglePlatform(p.id)}
+                    className={`text-xs px-3 py-1.5 rounded-full border transition-all ${selected ? `${p.className} shadow-md` : "bg-secondary/50 text-muted-foreground border-transparent hover:bg-secondary hover:text-foreground"}`}>
                     {p.label}
                   </button>
                 );
@@ -682,16 +782,8 @@ const Clipper = () => {
             <p className="text-xs text-muted-foreground mb-2">Clip Style</p>
             <div className="flex flex-wrap gap-2">
               {STYLES.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setClipStyle(s)}
-                  className={`text-xs px-3 py-1.5 rounded-full transition-all ${
-                    clipStyle === s
-                      ? "bg-primary text-primary-foreground shadow-glow"
-                      : "bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                  }`}
-                >
+                <button key={s} type="button" onClick={() => setClipStyle(s)}
+                  className={`text-xs px-3 py-1.5 rounded-full transition-all ${clipStyle === s ? "bg-primary text-primary-foreground shadow-glow" : "bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
                   {s}
                 </button>
               ))}
@@ -717,17 +809,8 @@ const Clipper = () => {
               <p className="text-xs text-muted-foreground mb-2">Font</p>
               <div className="flex flex-wrap gap-2">
                 {CAPTION_FONTS.map((f) => (
-                  <button
-                    key={f.id}
-                    type="button"
-                    onClick={() => setCaptionFont(f.id)}
-                    style={{ fontFamily: f.css }}
-                    className={`text-xs px-3 py-1.5 rounded-full transition-all ${
-                      captionFont === f.id
-                        ? "bg-primary text-primary-foreground shadow-glow"
-                        : "bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                  >
+                  <button key={f.id} type="button" onClick={() => setCaptionFont(f.id)} style={{ fontFamily: f.css }}
+                    className={`text-xs px-3 py-1.5 rounded-full transition-all ${captionFont === f.id ? "bg-primary text-primary-foreground shadow-glow" : "bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
                     {f.label}
                   </button>
                 ))}
@@ -738,16 +821,8 @@ const Clipper = () => {
               <p className="text-xs text-muted-foreground mb-2">Caption Style</p>
               <div className="flex flex-wrap gap-2">
                 {CAPTION_STYLES.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => setCaptionStyle(s.id)}
-                    className={`text-xs px-3 py-1.5 rounded-full transition-all ${
-                      captionStyle === s.id
-                        ? "bg-primary text-primary-foreground shadow-glow"
-                        : "bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                  >
+                  <button key={s.id} type="button" onClick={() => setCaptionStyle(s.id)}
+                    className={`text-xs px-3 py-1.5 rounded-full transition-all ${captionStyle === s.id ? "bg-primary text-primary-foreground shadow-glow" : "bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
                     {s.label}
                   </button>
                 ))}
@@ -758,16 +833,8 @@ const Clipper = () => {
               <p className="text-xs text-muted-foreground mb-2">Position</p>
               <div className="flex flex-wrap gap-2">
                 {CAPTION_POSITIONS.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setCaptionPosition(p.id)}
-                    className={`text-xs px-3 py-1.5 rounded-full transition-all ${
-                      captionPosition === p.id
-                        ? "bg-primary text-primary-foreground shadow-glow"
-                        : "bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
-                    }`}
-                  >
+                  <button key={p.id} type="button" onClick={() => setCaptionPosition(p.id)}
+                    className={`text-xs px-3 py-1.5 rounded-full transition-all ${captionPosition === p.id ? "bg-primary text-primary-foreground shadow-glow" : "bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"}`}>
                     {p.label}
                   </button>
                 ))}
@@ -784,18 +851,101 @@ const Clipper = () => {
           </div>
         </section>
 
+        {/* Frame & Format */}
+        <section className="max-w-3xl mx-auto space-y-6 bg-card/50 border border-border rounded-xl p-6">
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <Frame className="w-4 h-4 text-primary" />
+              <p className="text-sm font-medium">Frame &amp; Format</p>
+            </div>
+            <p className="text-xs text-muted-foreground">Choose the aspect ratio and device preview for your clips</p>
+          </div>
+
+          {/* Ratio tiles */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Aspect Ratio</p>
+            <div className="flex gap-3 overflow-x-auto sm:flex-wrap pb-2">
+              {RATIOS.map((r) => {
+                const selected = ratio === r.id;
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => setRatio(r.id)}
+                    className={`relative shrink-0 rounded-xl border p-3 text-left transition-all duration-200 ease-in-out w-[150px] ${
+                      selected
+                        ? "border-transparent bg-secondary/40 shadow-glow ring-2 ring-primary/70"
+                        : "border-border bg-secondary/20 hover:bg-secondary/40"
+                    }`}
+                    style={{
+                      backgroundImage: selected ? "linear-gradient(hsl(var(--card)), hsl(var(--card))), linear-gradient(135deg, hsl(var(--gradient-start)), hsl(var(--gradient-end)))" : undefined,
+                      backgroundOrigin: selected ? "border-box" : undefined,
+                      backgroundClip: selected ? "padding-box, border-box" : undefined,
+                    }}
+                  >
+                    {selected && (
+                      <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                        <Check className="w-3 h-3" />
+                      </span>
+                    )}
+                    <div className="flex items-center justify-center h-16 mb-2">
+                      <div
+                        className={`border-2 rounded ${selected ? "border-primary" : "border-muted-foreground/40"}`}
+                        style={{ width: r.w, height: r.h }}
+                      />
+                    </div>
+                    <p className="text-sm font-bold">{r.label}</p>
+                    <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">{r.subtitle}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Device frame pills */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Preview in Device Frame</p>
+            <div className="flex gap-2 overflow-x-auto sm:flex-wrap pb-1">
+              {DEVICES.map((d) => {
+                const selected = device === d.id;
+                const Icon = d.icon;
+                return (
+                  <button key={d.id} type="button" onClick={() => setDevice(d.id)}
+                    className={`shrink-0 inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full transition-all duration-200 ease-in-out ${
+                      selected ? "bg-primary text-primary-foreground shadow-glow" : "bg-secondary/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    }`}>
+                    {Icon && <Icon className="w-3.5 h-3.5" />}
+                    {d.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Crop position */}
+          <div>
+            <p className="text-xs text-muted-foreground mb-2">Crop Focus</p>
+            <div className="inline-grid grid-cols-3 gap-1.5 p-2 rounded-lg bg-secondary/30 border border-border">
+              {CROPS.map((c) => {
+                const selected = crop === c.id;
+                return (
+                  <button key={c.id} type="button" onClick={() => setCrop(c.id)} title={c.id}
+                    className={`w-9 h-9 sm:w-10 sm:h-10 rounded-md text-base flex items-center justify-center transition-all duration-200 ${
+                      selected ? "bg-primary text-primary-foreground shadow-glow" : "bg-background/50 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                    }`}>
+                    {c.arrow}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </section>
+
         {/* Generate button */}
         <section className="max-w-3xl mx-auto">
-          <Button
-            onClick={handleGenerate}
-            disabled={processing}
-            className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-semibold py-6 text-lg shadow-glow transition-all hover:shadow-glow-lg"
-          >
-            {processing ? (
-              <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Processing...</>
-            ) : (
-              <><Scissors className="w-5 h-5 mr-2" />✂ Find Viral Moments</>
-            )}
+          <Button onClick={handleGenerate} disabled={processing}
+            className="w-full bg-gradient-primary hover:opacity-90 text-primary-foreground font-semibold py-6 text-lg shadow-glow transition-all hover:shadow-glow-lg">
+            {processing ? (<><Loader2 className="w-5 h-5 mr-2 animate-spin" />Processing...</>) : (<><Scissors className="w-5 h-5 mr-2" />✂ Find Viral Moments</>)}
           </Button>
 
           {processing && (
@@ -813,56 +963,84 @@ const Clipper = () => {
               <h2 className="text-3xl font-bold">
                 <span className="bg-gradient-primary bg-clip-text text-transparent">Your Viral Clips</span>
               </h2>
-              <Button
-                onClick={handleDownloadZip}
-                disabled={zipping || clips.some((c) => c.extracting)}
-                className="bg-gradient-primary text-primary-foreground"
-              >
-                {zipping ? (
-                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Bundling...</>
-                ) : (
-                  <><Package className="w-4 h-4 mr-2" />Download All as ZIP</>
-                )}
+              <Button onClick={handleDownloadZip} disabled={zipping || clips.some((c) => c.extracting)}
+                className="bg-gradient-primary text-primary-foreground">
+                {zipping ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Bundling...</>) : (<><Package className="w-4 h-4 mr-2" />Download All as ZIP</>)}
               </Button>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
+            {/* Bulk download row */}
+            <div className="max-w-5xl mx-auto space-y-2">
+              <Button onClick={downloadAllClips}
+                disabled={!!bulkProgress || clips.some((c) => c.extracting)}
+                className="w-full bg-gradient-primary text-primary-foreground py-5 shadow-glow hover:shadow-glow-lg transition-all">
+                {bulkProgress ? (
+                  <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Downloading clip {bulkProgress.current} of {bulkProgress.total}…</>
+                ) : (
+                  <><Download className="w-4 h-4 mr-2" />⬇ Download All Clips + Captions</>
+                )}
+              </Button>
+              {bulkProgress && (
+                <p className="text-sm text-center text-muted-foreground">Downloading clip {bulkProgress.current} of {bulkProgress.total}…</p>
+              )}
+              {bulkDone !== null && !bulkProgress && (
+                <div className="text-sm text-center text-primary font-medium border border-primary/40 bg-primary/10 rounded-md py-2 animate-fade-in">
+                  All {bulkDone} clip{bulkDone > 1 ? "s" : ""} and caption{bulkDone > 1 ? "s" : ""} downloaded successfully ✓
+                </div>
+              )}
+            </div>
+
+            <div className={`grid md:grid-cols-2 ${clips.length >= 6 ? "lg:grid-cols-3" : ""} gap-6 max-w-5xl mx-auto`}>
               {clips.map((c) => (
                 <div key={c.id} className="bg-card/50 border border-border rounded-xl overflow-hidden flex flex-col">
-                  <div className="relative aspect-video bg-black">
-                    {c.extracting ? (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-4">
-                        {c.thumbnail && (
-                          <img src={c.thumbnail} alt="" className="absolute inset-0 w-full h-full object-cover opacity-30" />
-                        )}
-                        <div className="relative z-10 flex flex-col items-center w-full">
-                          <Loader2 className="w-8 h-8 animate-spin mb-2 text-primary" />
-                          <p className="text-sm font-medium text-foreground">Extracting…</p>
-                          <div className="w-full max-w-[80%] mt-3">
-                            <Progress value={c.extractProgress} className="h-1.5" />
-                            <p className="text-[10px] text-center mt-1 text-muted-foreground">
-                              {Math.round(c.extractProgress)}%
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="relative w-full h-full">
-                        {c.blobUrl ? (
-                          <video src={c.blobUrl} controls poster={c.thumbnail} className="w-full h-full object-contain bg-black" />
-                        ) : (
-                          <FallbackPlayer src={videoUrl!} start={c.start} end={c.end} poster={c.thumbnail} />
-                        )}
-                        {c.caption && (
-                          <div className={`absolute ${positionClass} z-10`}>
-                            <div style={captionOverlayStyle}>
-                              {c.caption.split("\n")[0]}
+                  {/* Preview area with ratio + device frame */}
+                  <div className="relative bg-black/40 p-3 flex items-center justify-center">
+                    {/* Format badge */}
+                    <span className="absolute top-2 left-2 z-20 text-[10px] font-medium px-2 py-1 rounded-full bg-background/80 border border-border backdrop-blur-sm">
+                      {ratioLabel} · {deviceLabel}
+                    </span>
+
+                    <DeviceFrame device={device} className="w-full max-w-full transition-opacity duration-300">
+                      <div
+                        className="relative w-full bg-black overflow-hidden transition-[aspect-ratio] duration-300"
+                        style={ratioCss}
+                      >
+                        {c.extracting ? (
+                          <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-4">
+                            {c.thumbnail && (
+                              <img src={c.thumbnail} alt="" className="absolute inset-0 w-full h-full opacity-30"
+                                style={{ objectFit: ratio === "fit" ? "contain" : "cover", objectPosition: crop }} />
+                            )}
+                            <div className="relative z-10 flex flex-col items-center w-full">
+                              <Loader2 className="w-8 h-8 animate-spin mb-2 text-primary" />
+                              <p className="text-sm font-medium text-foreground">Extracting…</p>
+                              <div className="w-full max-w-[80%] mt-3">
+                                <Progress value={c.extractProgress} className="h-1.5" />
+                                <p className="text-[10px] text-center mt-1 text-muted-foreground">{Math.round(c.extractProgress)}%</p>
+                              </div>
                             </div>
                           </div>
+                        ) : (
+                          <>
+                            {c.blobUrl ? (
+                              <video src={c.blobUrl} controls poster={c.thumbnail}
+                                className="w-full h-full bg-black"
+                                style={{ objectFit: ratio === "fit" ? "contain" : "cover", objectPosition: crop }} />
+                            ) : (
+                              <FallbackPlayer src={videoUrl!} start={c.start} end={c.end} poster={c.thumbnail}
+                                fit={ratio === "fit" ? "contain" : "cover"} position={crop} />
+                            )}
+                            {c.caption && (
+                              <div className={`absolute ${positionClass} z-10`}>
+                                <div style={captionOverlayStyle}>{c.caption.split("\n")[0]}</div>
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
-                    )}
+                    </DeviceFrame>
                   </div>
+
                   <div className="p-4 space-y-3 flex-1 flex flex-col">
                     <div className="flex items-start justify-between gap-2">
                       <div>
@@ -879,9 +1057,7 @@ const Clipper = () => {
                         const p = PLATFORMS.find((x) => x.id === pid);
                         if (!p) return null;
                         return (
-                          <span key={pid} className={`text-[10px] px-2 py-0.5 rounded-full border ${p.className}`}>
-                            {p.label}
-                          </span>
+                          <span key={pid} className={`text-[10px] px-2 py-0.5 rounded-full border ${p.className}`}>{p.label}</span>
                         );
                       })}
                     </div>
@@ -890,12 +1066,8 @@ const Clipper = () => {
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground">Caption (editable)</p>
-                        <button
-                          type="button"
-                          onClick={() => handleRegenerateCaption(c)}
-                          disabled={c.captionLoading}
-                          className="text-[10px] text-primary hover:underline disabled:opacity-50"
-                        >
+                        <button type="button" onClick={() => handleRegenerateCaption(c)} disabled={c.captionLoading}
+                          className="text-[10px] text-primary hover:underline disabled:opacity-50">
                           {c.captionLoading ? "Generating…" : "Regenerate"}
                         </button>
                       </div>
@@ -908,18 +1080,46 @@ const Clipper = () => {
                       />
                     </div>
 
-                    <div className="flex gap-2 pt-2 mt-auto">
-                      <Button variant="outline" size="sm" className="flex-1" onClick={() => handleDownload(c)} disabled={c.extracting}>
-                        <Download className="w-4 h-4 mr-2" /> Download
+                    <div className="pt-2 mt-auto">
+                      <Button size="sm" className="w-full bg-gradient-primary text-primary-foreground"
+                        onClick={() => handleCopyCaption(c)} disabled={c.captionLoading || !c.caption}>
+                        <Copy className="w-4 h-4 mr-2" /> Copy Caption
                       </Button>
+                    </div>
+
+                    {/* Download Panel */}
+                    <div className="space-y-2 pt-3 border-t border-border">
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={`flex-1 transition-all ${videoFlash[c.id] ? "border-primary text-primary" : ""} ${c.extracting ? "animate-pulse" : ""}`}
+                          onClick={() => downloadVideoFor(c)}
+                          disabled={c.extracting || !c.blobUrl}
+                        >
+                          {videoFlash[c.id] ? (<><Check className="w-4 h-4 mr-2" />Saved!</>) :
+                            c.extracting ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Preparing…</>) :
+                            (<><Download className="w-4 h-4 mr-2" />Download Video</>)}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={`flex-1 transition-all ${captionFlash[c.id] ? "border-primary text-primary" : ""}`}
+                          onClick={() => downloadCaptionFor(c)}
+                          disabled={captionDownloading[c.id]}
+                        >
+                          {captionFlash[c.id] ? (<><Check className="w-4 h-4 mr-2" />Downloaded!</>) :
+                            captionDownloading[c.id] ? (<><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating…</>) :
+                            (<><FileText className="w-4 h-4 mr-2" />Download Caption</>)}
+                        </Button>
+                      </div>
                       <Button
                         size="sm"
-                        className="flex-1 bg-gradient-primary text-primary-foreground"
-                        onClick={() => handleCopyCaption(c)}
-                        disabled={c.captionLoading || !c.caption}
+                        className="w-full bg-secondary/70 hover:bg-secondary text-foreground border border-border"
+                        onClick={() => downloadAllForClip(c)}
+                        disabled={c.extracting || !c.blobUrl}
                       >
-                        <Copy className="w-4 h-4 mr-2" />
-                        Copy Caption
+                        <Package className="w-4 h-4 mr-2" />⬇ Download All Assets for This Clip
                       </Button>
                     </div>
                   </div>
@@ -934,8 +1134,8 @@ const Clipper = () => {
 };
 
 const FallbackPlayer = ({
-  src, start, end, poster,
-}: { src: string; start: number; end: number; poster?: string }) => {
+  src, start, end, poster, fit = "contain", position = "center center",
+}: { src: string; start: number; end: number; poster?: string; fit?: "contain" | "cover"; position?: string }) => {
   const ref = useRef<HTMLVideoElement>(null);
   const onLoaded = () => { if (ref.current) ref.current.currentTime = start; };
   const onTimeUpdate = () => {
@@ -945,15 +1145,55 @@ const FallbackPlayer = ({
     }
   };
   return (
-    <video
-      ref={ref}
-      src={src}
-      controls
-      poster={poster}
-      onLoadedMetadata={onLoaded}
-      onTimeUpdate={onTimeUpdate}
-      className="w-full h-full object-contain bg-black"
-    />
+    <video ref={ref} src={src} controls poster={poster} onLoadedMetadata={onLoaded} onTimeUpdate={onTimeUpdate}
+      className="w-full h-full bg-black"
+      style={{ objectFit: fit, objectPosition: position }} />
+  );
+};
+
+const DeviceFrame = ({ device, children, className }: { device: DeviceId; children: React.ReactNode; className?: string }) => {
+  if (device === "none") return <div className={className}>{children}</div>;
+  if (device === "iphone") {
+    return (
+      <div className={`relative mx-auto bg-neutral-900 rounded-[2.2rem] p-2 shadow-2xl ${className}`} style={{ border: "1.5px solid #2a2a2a" }}>
+        <div className="absolute right-[-3px] top-24 h-16 w-1 bg-neutral-700 rounded-r" />
+        <div className="absolute left-[-3px] top-20 h-10 w-1 bg-neutral-700 rounded-l" />
+        <div className="absolute left-[-3px] top-36 h-16 w-1 bg-neutral-700 rounded-l" />
+        <div className="relative bg-black rounded-[1.7rem] overflow-hidden">
+          <div className="absolute top-1.5 left-1/2 -translate-x-1/2 z-30 h-5 w-20 rounded-full bg-black border border-neutral-800" />
+          {children}
+        </div>
+      </div>
+    );
+  }
+  if (device === "android") {
+    return (
+      <div className={`relative mx-auto bg-neutral-950 rounded-[1.4rem] p-1.5 shadow-2xl ${className}`} style={{ border: "1.5px solid #1f1f1f" }}>
+        <div className="relative bg-black rounded-[1.1rem] overflow-hidden">
+          <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 h-2.5 w-2.5 rounded-full bg-neutral-800 border border-neutral-700" />
+          {children}
+        </div>
+      </div>
+    );
+  }
+  if (device === "desktop") {
+    return (
+      <div className={`mx-auto ${className}`}>
+        <div className="relative bg-neutral-900 rounded-t-lg p-2 pt-3 shadow-2xl border border-neutral-800">
+          <div className="absolute top-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-neutral-700" />
+          <div className="bg-black rounded overflow-hidden">{children}</div>
+        </div>
+        <div className="h-2 bg-neutral-800 rounded-b-xl mx-[-8px]" />
+        <div className="h-1 bg-neutral-900 rounded-b mx-[-4px]" />
+      </div>
+    );
+  }
+  // tablet
+  return (
+    <div className={`relative mx-auto bg-slate-700 rounded-[1.2rem] p-2.5 shadow-2xl ${className}`}>
+      <div className="relative bg-black rounded-[0.7rem] overflow-hidden">{children}</div>
+      <div className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-12 rounded-full bg-slate-500" />
+    </div>
   );
 };
 

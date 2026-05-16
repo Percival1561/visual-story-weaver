@@ -1139,6 +1139,7 @@ const Clipper = () => {
             </div>
           </section>
         )}
+        </main>
       </div>
     </div>
   );

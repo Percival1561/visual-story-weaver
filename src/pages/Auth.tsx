@@ -227,7 +227,7 @@ const Auth = () => {
             </Button>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

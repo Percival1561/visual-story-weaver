@@ -130,6 +130,7 @@ export function Gallery({
                   onClick={(e) => handleShare(e, image)}
                   disabled={sharingId === image.id}
                   className="w-8 h-8"
+                  aria-label="Share image publicly"
                 >
                   <Share2 className="w-4 h-4" />
                 </Button>
@@ -142,6 +143,7 @@ export function Gallery({
                     size="icon"
                     onClick={(e) => copyShareLink(e, image)}
                     className="w-8 h-8"
+                    aria-label="Copy share link"
                   >
                     <Link2 className="w-4 h-4" />
                   </Button>
@@ -151,6 +153,7 @@ export function Gallery({
                     onClick={(e) => handleUnshare(e, image)}
                     disabled={sharingId === image.id}
                     className="w-8 h-8"
+                    aria-label="Stop sharing image"
                   >
                     <X className="w-4 h-4" />
                   </Button>
@@ -166,6 +169,7 @@ export function Gallery({
                     onDelete(image);
                   }}
                   className="w-8 h-8"
+                  aria-label="Delete image"
                 >
                   <Trash2 className="w-4 h-4" />
                 </Button>

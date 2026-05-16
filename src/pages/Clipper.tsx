@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
@@ -676,6 +677,14 @@ const Clipper = () => {
 
   return (
     <div className="min-h-screen bg-background relative">
+      <Helmet>
+        <title>Clipper — AI Viral Clip Extractor | VisuallyAi</title>
+        <meta name="description" content="Upload a video and let AI find the viral moments. Auto-generate captions, frame for any platform, and download ready-to-post short clips." />
+        <link rel="canonical" href="https://visuallyai.lovable.app/clipper" />
+        <meta property="og:title" content="Clipper — AI Viral Clip Extractor" />
+        <meta property="og:description" content="Upload a video and let AI extract viral short clips for TikTok, Reels, Shorts, and Snap." />
+        <meta property="og:url" content="https://visuallyai.lovable.app/clipper" />
+      </Helmet>
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-glow-primary/10 rounded-full blur-3xl" />
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-glow-accent/10 rounded-full blur-3xl" />
@@ -697,6 +706,7 @@ const Clipper = () => {
           </nav>
         </header>
 
+        <main className="space-y-12">
         <section className="text-center space-y-4">
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border text-sm text-muted-foreground">
             <Scissors className="w-4 h-4 text-primary" />
@@ -704,6 +714,7 @@ const Clipper = () => {
           </div>
           <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
             <span className="bg-gradient-primary bg-clip-text text-transparent">Clipper</span>
+            <span className="sr-only"> — AI Viral Clip Extractor</span>
           </h1>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Upload your video. AI finds the viral moments.
@@ -1128,6 +1139,7 @@ const Clipper = () => {
             </div>
           </section>
         )}
+        </main>
       </div>
     </div>
   );

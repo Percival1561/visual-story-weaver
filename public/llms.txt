@@ -1,0 +1,16 @@
+# VisuallyAi
+
+> Turn text prompts into stunning AI-generated images and extract viral clips from long videos.
+
+VisuallyAi is a web app that pairs AI image generation with an AI video clipper. Users describe what they imagine and receive high-quality images, or upload a long video and get short, platform-ready viral clips with auto-generated captions.
+
+## Pages
+
+- [Home](/): Product overview, features, pricing, and FAQ.
+- [Image Generator](/app): Generate AI images from text prompts and manage your gallery.
+- [Clipper](/clipper): Upload a video and extract viral short clips for TikTok, Reels, Shorts, and Snap.
+- [Sign in](/auth): Sign in or create a VisuallyAi account.
+
+## Optional
+
+- [Shared image example](/shared/): Public view of a generated image (dynamic share IDs).

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -107,13 +108,21 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
+      <Helmet>
+        <title>Sign in — VisuallyAi</title>
+        <meta name="description" content="Sign in or create a VisuallyAi account to generate AI images, extract viral clips, and save your creations to a personal gallery." />
+        <link rel="canonical" href="https://visuallyai.lovable.app/auth" />
+        <meta property="og:title" content="Sign in to VisuallyAi" />
+        <meta property="og:description" content="Sign in or create a VisuallyAi account to generate AI images and viral video clips." />
+        <meta property="og:url" content="https://visuallyai.lovable.app/auth" />
+      </Helmet>
       {/* Background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-glow-primary/10 rounded-full blur-3xl" />
         <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-glow-accent/10 rounded-full blur-3xl" />
       </div>
 
-      <div className="relative z-10 w-full max-w-md">
+      <main className="relative z-10 w-full max-w-md">
         <div className="absolute -inset-1 bg-gradient-primary rounded-2xl blur-lg opacity-30" />
         <div className="relative bg-card border border-border rounded-2xl p-8 space-y-6">
           <div className="text-center space-y-2">
@@ -122,7 +131,7 @@ const Auth = () => {
               AI Image Generation
             </div>
             <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              Visionary
+              Visionary<span className="sr-only"> — AI-Powered Image Generation</span>
             </h1>
             <p className="text-muted-foreground">
               {isSignUp ? "Create an account to save your creations" : "Welcome back, creator"}
@@ -218,7 +227,7 @@ const Auth = () => {
             </Button>
           </div>
         </div>
-      </div>
+      </main>
     </div>
   );
 };

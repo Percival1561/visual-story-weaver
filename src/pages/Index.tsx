@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { useNavigate } from "react-router-dom";
 import { PromptInput } from "@/components/PromptInput";
 import { ImageDisplay } from "@/components/ImageDisplay";
@@ -357,6 +358,14 @@ const Index = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
+      <Helmet>
+        <title>Visionary — AI Image Generator | VisuallyAi</title>
+        <meta name="description" content="Generate stunning AI images from text prompts. Manage your gallery, share creations, and explore unlimited variations with VisuallyAi." />
+        <link rel="canonical" href="https://visuallyai.lovable.app/app" />
+        <meta property="og:title" content="Visionary — AI Image Generator" />
+        <meta property="og:description" content="Generate stunning AI images from text prompts. Manage your gallery and share creations." />
+        <meta property="og:url" content="https://visuallyai.lovable.app/app" />
+      </Helmet>
       <div className="min-h-screen flex w-full bg-background">
         <HistorySidebar
           images={gallery}
@@ -439,6 +448,7 @@ const Index = () => {
               </div>
               <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold tracking-tight">
                 <span className="bg-gradient-primary bg-clip-text text-transparent">Visionary</span>
+                <span className="sr-only"> — AI-Powered Image Generation</span>
               </h1>
               <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
                 Transform your ideas into stunning visuals. Just describe what you imagine.
@@ -452,7 +462,7 @@ const Index = () => {
                       <Crown className="w-6 h-6 text-primary-foreground" />
                     </div>
                     <div className="text-left">
-                      <h3 className="font-semibold text-foreground">Unlock Visionary Pro</h3>
+                      <h2 className="font-semibold text-foreground text-base">Unlock Visionary Pro</h2>
                       <p className="text-sm text-muted-foreground">3-day free trial, then $9.99/month</p>
                     </div>
                     <Button 

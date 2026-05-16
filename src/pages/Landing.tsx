@@ -84,8 +84,35 @@ const Landing = () => {
     }
   };
 
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      { question: "How does the free trial work?", answer: "Start with a 3-day free trial of our Pro plan. Cancel anytime before the trial ends and you won't be charged." },
+      { question: "What AI model do you use for image generation?", answer: "We use state-of-the-art AI models optimized for creative and artistic image outputs from text descriptions." },
+      { question: "Can I use the generated images commercially?", answer: "Yes — Pro subscribers have full commercial usage rights for all images they generate." },
+      { question: "How many images can I generate?", answer: "Pro subscribers enjoy unlimited image generation with no daily or monthly limits." },
+      { question: "Can I share my creations with others?", answer: "Yes, every image can be shared via a unique public link that recipients can view without an account." },
+      { question: "What happens to my images if I cancel?", answer: "Your images remain in your gallery, but new generation and Pro features pause until you resubscribe." },
+      { question: "How do I cancel my subscription?", answer: "Cancel anytime from your account settings; access remains until the end of the current billing period." },
+    ].map((f) => ({
+      "@type": "Question",
+      name: f.question,
+      acceptedAnswer: { "@type": "Answer", text: f.answer },
+    })),
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>VisuallyAi — AI Image Generation & Viral Video Clips</title>
+        <meta name="description" content="Turn text prompts into stunning AI images and extract viral short clips from your videos. Free tier available, Pro from $9.99/month." />
+        <link rel="canonical" href="https://visuallyai.lovable.app/" />
+        <meta property="og:title" content="VisuallyAi — AI Image Generation & Viral Video Clips" />
+        <meta property="og:description" content="Turn text prompts into stunning AI images and extract viral short clips from your videos." />
+        <meta property="og:url" content="https://visuallyai.lovable.app/" />
+        <script type="application/ld+json">{JSON.stringify(faqJsonLd)}</script>
+      </Helmet>
       {/* Background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-glow-primary/10 rounded-full blur-3xl" />
@@ -120,6 +147,7 @@ const Landing = () => {
           </nav>
         </header>
 
+        <main>
         {/* Hero Section */}
         <section className="container mx-auto px-4 py-20 text-center">
           <motion.div
@@ -441,6 +469,7 @@ const Landing = () => {
             </div>
           </Card>
         </section>
+        </main>
 
         {/* Footer */}
         <footer className="container mx-auto px-4 py-12 border-t border-border">

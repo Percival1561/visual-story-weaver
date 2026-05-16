@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -58,6 +59,9 @@ const SharedImage = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
+        <Helmet>
+          <title>Loading shared image — VisuallyAi</title>
+        </Helmet>
         <div className="w-12 h-12 rounded-full border-4 border-primary/30 border-t-primary animate-spin" />
       </div>
     );
@@ -66,6 +70,10 @@ const SharedImage = () => {
   if (error || !image) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Helmet>
+          <title>Shared image not found — VisuallyAi</title>
+          <meta name="robots" content="noindex" />
+        </Helmet>
         <div className="text-center space-y-4">
           <h1 className="text-2xl font-bold text-foreground">{error || "Image not found"}</h1>
           <p className="text-muted-foreground">This image may have been deleted or is no longer shared.</p>
@@ -80,8 +88,33 @@ const SharedImage = () => {
     );
   }
 
+  const shortPrompt = image.prompt.length > 80 ? image.prompt.slice(0, 77) + "…" : image.prompt;
+  const pageTitle = `AI Generated Image: ${shortPrompt} | VisuallyAi`;
+  const pageDesc = `View this AI-generated image created with VisuallyAi from the prompt: "${shortPrompt}".`;
+  const pageUrl = `https://visuallyai.lovable.app/shared/${shareId}`;
+  const imageJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ImageObject",
+    contentUrl: image.image_url,
+    description: image.prompt,
+    uploadDate: image.created_at,
+    creator: { "@type": "Organization", name: "VisuallyAi" },
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      <Helmet>
+        <title>{pageTitle}</title>
+        <meta name="description" content={pageDesc} />
+        <link rel="canonical" href={pageUrl} />
+        <meta property="og:title" content={`AI Generated Image: ${shortPrompt}`} />
+        <meta property="og:description" content={pageDesc} />
+        <meta property="og:url" content={pageUrl} />
+        <meta property="og:image" content={image.image_url} />
+        <meta property="og:type" content="article" />
+        <script type="application/ld+json">{JSON.stringify(imageJsonLd)}</script>
+      </Helmet>
+
       {/* Background effects */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-1/4 w-96 h-96 bg-glow-primary/10 rounded-full blur-3xl" />
@@ -97,6 +130,7 @@ const SharedImage = () => {
         </header>
 
         <main className="max-w-3xl mx-auto space-y-6">
+          <h1 className="sr-only">AI Generated Image: {shortPrompt}</h1>
           <div className="relative group">
             <div className="absolute -inset-2 bg-gradient-primary rounded-2xl blur-xl opacity-30" />
             <div className="relative rounded-2xl overflow-hidden border border-border bg-card">
